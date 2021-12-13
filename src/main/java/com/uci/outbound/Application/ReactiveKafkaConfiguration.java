@@ -39,7 +39,7 @@ public class ReactiveKafkaConfiguration {
         ReceiverOptions<String, String> options = ReceiverOptions.create(kafkaConsumerConfiguration());
         return options.subscription(Arrays.asList(inTopicName))
                 .withKeyDeserializer(new JsonDeserializer<>())
-                .withValueDeserializer(new JsonDeserializer());
+                .withValueDeserializer(new JsonDeserializer(String.class));
     }
 
     @Bean
