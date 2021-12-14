@@ -8,6 +8,11 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import messagerosa.core.model.XMessage;
 import com.uci.dao.utils.XMessageDAOUtils;
+
+import io.grpc.Context;
+import io.opentelemetry.api.trace.Span;
+import io.opentelemetry.api.trace.Tracer;
+import io.opentelemetry.context.Scope;
 import messagerosa.xml.XMessageParser;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.context.event.ApplicationStartedEvent;
@@ -31,6 +36,9 @@ public class OutboundKafkaController {
 
     @Autowired
     private XMessageRepository xMessageRepo;
+    
+    @Autowired
+	private Tracer tracer;
 
     @EventListener(ApplicationStartedEvent.class)
     public void onMessage() {
@@ -38,8 +46,10 @@ public class OutboundKafkaController {
                 .doOnNext(new Consumer<ReceiverRecord<String, String>>() {
                     @Override
                     public void accept(ReceiverRecord<String, String> msg) {
+                    	Span rootSpan = tracer.spanBuilder("outbound-processMessage").startSpan();
+                    	Context currentContext = Context.current();
                         XMessage currentXmsg = null;
-                        try {
+                        try(Scope scope = rootSpan.makeCurrent()) {
                             currentXmsg = XMessageParser.parse(new ByteArrayInputStream(msg.value().getBytes()));
                             String channel = currentXmsg.getChannelURI();
                             String provider = currentXmsg.getProviderURI();
@@ -54,6 +64,7 @@ public class OutboundKafkaController {
                                                 @Override
                                                 public void accept(XMessageDAO xMessageDAO) {
                                                     log.info("XMessage Object saved is with sent user ID >> " + xMessageDAO.getUserId());
+                                                    rootSpan.end();
                                                 }
                                             });
                                 }
