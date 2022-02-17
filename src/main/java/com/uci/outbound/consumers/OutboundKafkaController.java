@@ -58,34 +58,39 @@ public class OutboundKafkaController {
                             String channel = currentXmsg.getChannelURI();
                             String provider = currentXmsg.getProviderURI();
                             IProvider iprovider = factoryProvider.getProvider(provider, channel);
-                            iprovider.processOutBoundMessageF(currentXmsg).subscribe(new Consumer<XMessage>() {
-                                @Override
-                                public void accept(XMessage xMessage) {
-                                    XMessageDAO dao = XMessageDAOUtils.convertXMessageToDAO(xMessage);
-                                    
-                                    try {
-                                    	hashOperations = redisTemplate.opsForHash();
-                                        hashOperations.put(redisKeyWithPrefix("XMessageDAO"), redisKeyWithPrefix(xMessage.getTo().getUserID()), dao);
-                                        log.info("Updated redis cache with key: "+redisKeyWithPrefix("XMessageDAO")+", "+redisKeyWithPrefix(xMessage.getTo().getUserID()));
-                                    } catch (Exception e) {
-                                    	/* If redis cache not able to set, delete cache */
-                                    	hashOperations.delete(redisKeyWithPrefix("XMessageDAO"), redisKeyWithPrefix(xMessage.getTo().getUserID()));
-                                    	
-                                    	log.info("Exception in redis put: "+e.getMessage());
-                                    	e.printStackTrace();
-                                    }
-                                    
-                                    xMessageRepo
-                                            .insert(dao)
-                                            .doOnError(genericError("Error in inserting current message"))
-                                            .subscribe(new Consumer<XMessageDAO>() {
-                                                @Override
-                                                public void accept(XMessageDAO xMessageDAO) {
-                                                    log.info("XMessage Object saved is with sent user ID >> " + xMessageDAO.getUserId());
-                                                }
-                                            });
-                                }
-                            });
+                            iprovider.processOutBoundMessageF(currentXmsg)
+                            	.doOnError(new Consumer<Throwable>() {
+				                    @Override
+				                    public void accept(Throwable e) {
+				                        log.error("Exception in processOutBoundMessageF:"+e.getMessage());
+				                    }
+				                }).subscribe(new Consumer<XMessage>() {
+				                	@Override
+	                                public void accept(XMessage xMessage) {
+	                                    XMessageDAO dao = XMessageDAOUtils.convertXMessageToDAO(xMessage);
+	                                    
+	                                    try {
+	                                    	hashOperations = redisTemplate.opsForHash();
+	                                        hashOperations.put(redisKeyWithPrefix("XMessageDAO"), redisKeyWithPrefix(xMessage.getTo().getUserID()), dao);
+	                                	log.info("Updated redis cache with key: "+redisKeyWithPrefix("XMessageDAO")+", "+redisKeyWithPrefix(xMessage.getTo().getUserID()));    
+					    } catch (Exception e) {
+	                                    	/* If redis cache not able to set, delete cache */
+	                                    	hashOperations.delete(redisKeyWithPrefix("XMessageDAO"), redisKeyWithPrefix(xMessage.getTo().getUserID()));
+	                                    	
+	                                    	log.info("Exception in redis put: "+e.getMessage());
+	                                    	e.printStackTrace();
+	                                    }
+	                                    
+	                                    xMessageRepo
+	                                            .insert(dao)
+	                                            .subscribe(new Consumer<XMessageDAO>() {
+	                                                @Override
+	                                                public void accept(XMessageDAO xMessageDAO) {
+	                                                    log.info("XMessage Object saved is with sent user ID >> " + xMessageDAO.getUserId());
+	                                                }
+	                                            });
+	                                }
+	                            });
                         } catch (Exception e) {
                             e.printStackTrace();
                         }
