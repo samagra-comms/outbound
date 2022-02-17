@@ -66,6 +66,7 @@ public class OutboundKafkaController {
                                     try {
                                     	hashOperations = redisTemplate.opsForHash();
                                         hashOperations.put(redisKeyWithPrefix("XMessageDAO"), redisKeyWithPrefix(xMessage.getTo().getUserID()), dao);
+                                        log.info("Updated redis cache with key: "+redisKeyWithPrefix("XMessageDAO")+", "+redisKeyWithPrefix(xMessage.getTo().getUserID()));
                                     } catch (Exception e) {
                                     	/* If redis cache not able to set, delete cache */
                                     	hashOperations.delete(redisKeyWithPrefix("XMessageDAO"), redisKeyWithPrefix(xMessage.getTo().getUserID()));
