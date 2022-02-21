@@ -8,6 +8,10 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import messagerosa.core.model.XMessage;
 import com.uci.dao.utils.XMessageDAOUtils;
+import com.uci.utils.cdn.samagra.MinioClientService;
+
+import io.fusionauth.client.FusionAuthClient;
+import io.fusionauth.domain.api.LoginRequest;
 import messagerosa.xml.XMessageParser;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.context.event.ApplicationStartedEvent;
@@ -38,6 +42,9 @@ public class OutboundKafkaController {
     private RedisTemplate<String, Object> redisTemplate;
     
     private HashOperations hashOperations; //to access Redis cache
+    
+    @Autowired
+    private MinioClientService minioClientService;
 
     private Consumer<Throwable> genericError(String s) {
         return c -> {
@@ -57,7 +64,7 @@ public class OutboundKafkaController {
                             currentXmsg = XMessageParser.parse(new ByteArrayInputStream(msg.value().getBytes()));
                             String channel = currentXmsg.getChannelURI();
                             String provider = currentXmsg.getProviderURI();
-                            IProvider iprovider = factoryProvider.getProvider(provider, channel);
+                            IProvider iprovider = factoryProvider.getProvider(provider, channel, minioClientService);
                             iprovider.processOutBoundMessageF(currentXmsg)
                             	.doOnError(new Consumer<Throwable>() {
 				                    @Override
