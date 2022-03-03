@@ -8,6 +8,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import messagerosa.core.model.XMessage;
 import com.uci.dao.utils.XMessageDAOUtils;
+import com.uci.utils.cache.service.RedisCacheService;
 import com.uci.utils.cdn.samagra.MinioClientService;
 
 import io.fusionauth.client.FusionAuthClient;
@@ -39,7 +40,7 @@ public class OutboundKafkaController {
     private XMessageRepository xMessageRepo;
     
     @Autowired
-    private RedisTemplate<String, Object> redisTemplate;
+    private RedisCacheService redisCacheService;
     
     private HashOperations hashOperations; //to access Redis cache
     
@@ -71,16 +72,7 @@ public class OutboundKafkaController {
 	                                public void accept(XMessage xMessage) {
 	                                    XMessageDAO dao = XMessageDAOUtils.convertXMessageToDAO(xMessage);
 	                                    
-	                                    try {
-	                                    	hashOperations = redisTemplate.opsForHash();
-	                                        hashOperations.put(redisKeyWithPrefix("XMessageDAO"), redisKeyWithPrefix(xMessage.getTo().getUserID()), dao);
-	                                    } catch (Exception e) {
-	                                    	/* If redis cache not able to set, delete cache */
-	                                    	hashOperations.delete(redisKeyWithPrefix("XMessageDAO"), redisKeyWithPrefix(xMessage.getTo().getUserID()));
-	                                    	
-	                                    	log.info("Exception in redis put: "+e.getMessage());
-	                                    	e.printStackTrace();
-	                                    }
+	                                    redisCacheService.setXMessageDaoCache(xMessage.getTo().getUserID(), dao);
 	                                    
 	                                    xMessageRepo
 	                                            .insert(dao)
