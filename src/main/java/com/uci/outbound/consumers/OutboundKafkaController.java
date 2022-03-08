@@ -8,6 +8,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import messagerosa.core.model.XMessage;
 import com.uci.dao.utils.XMessageDAOUtils;
+import com.uci.utils.cache.service.RedisCacheService;
 import com.uci.utils.cdn.samagra.MinioClientService;
 
 import io.fusionauth.client.FusionAuthClient;
@@ -39,9 +40,7 @@ public class OutboundKafkaController {
     private XMessageRepository xMessageRepo;
     
     @Autowired
-    private RedisTemplate<String, Object> redisTemplate;
-    
-    private HashOperations hashOperations; //to access Redis cache
+    private RedisCacheService redisCacheService;
     
     @Autowired
     private MinioClientService minioClientService;
@@ -59,6 +58,7 @@ public class OutboundKafkaController {
                 .doOnNext(new Consumer<ReceiverRecord<String, String>>() {
                     @Override
                     public void accept(ReceiverRecord<String, String> msg) {
+                    	log.info("kafka message receieved!");
                         XMessage currentXmsg = null;
                         try {
                             currentXmsg = XMessageParser.parse(new ByteArrayInputStream(msg.value().getBytes()));
@@ -76,38 +76,20 @@ public class OutboundKafkaController {
 	                                public void accept(XMessage xMessage) {
 	                                    XMessageDAO dao = XMessageDAOUtils.convertXMessageToDAO(xMessage);
 	                                    
+	                                    redisCacheService.setXMessageDaoCache(xMessage.getTo().getUserID(), dao);
+	                                    
 	                                    xMessageRepo
 	                                            .insert(dao)
 	                                            .doOnError(new Consumer<Throwable>() {
 	                                            	@Override
 	            				                    public void accept(Throwable e) {
-	                                            		hashOperations.delete(redisKeyWithPrefix("XMessageDAO"), redisKeyWithPrefix(xMessage.getTo().getUserID()));
+	                                            		redisCacheService.deleteXMessageDaoCache(xMessage.getTo().getUserID());
 	                                            		log.error("Exception in xMsg Dao Save:"+e.getMessage());
 	            				                    }
 	                                            })
 	                                            .subscribe(new Consumer<XMessageDAO>() {
 	                                                @Override
 	                                                public void accept(XMessageDAO xMessageDAO) {
-	                                                	try {
-	            	                                    	hashOperations = redisTemplate.opsForHash();
-	            	                                        hashOperations.put(redisKeyWithPrefix("XMessageDAO"), redisKeyWithPrefix(xMessage.getTo().getUserID()), xMessageDAO);
-	            	                                        log.info("Updated redis cache with key: "+redisKeyWithPrefix("XMessageDAO")+", "+redisKeyWithPrefix(xMessage.getTo().getUserID()));
-	            	                                    
-	            	                                        XMessageDAO dao =  (XMessageDAO) hashOperations.get(redisKeyWithPrefix("XMessageDAO"), redisKeyWithPrefix(xMessage.getTo().getUserID()));
-	            	                                        if(dao != null ) {
-	            	                                        	log.info("Redis xMsgDao id: "+dao.getId()+", dao app: "+dao.getApp()
-		            	                            			+", From id: "+dao.getFromId()+", user id: "+dao.getUserId()
-		            	                            			+", status: "+dao.getMessageState()+
-		            	                            			", timestamp: "+dao.getTimestamp());
-	            	                                        }
-	                                                	} catch (Exception e) {
-	            	                                    	/* If redis cache not able to set, delete cache */
-	            	                                    	hashOperations.delete(redisKeyWithPrefix("XMessageDAO"), redisKeyWithPrefix(xMessage.getTo().getUserID()));
-	            	                                    	
-	            	                                    	log.info("Exception in redis put: "+e.getMessage());
-//	            	                                    	e.printStackTrace();
-	            	                                    }
-	                                                	
 	                                                    log.info("XMessage Object saved is with sent user ID >> " + xMessageDAO.getUserId());
 	                                                }
 	                                            });
