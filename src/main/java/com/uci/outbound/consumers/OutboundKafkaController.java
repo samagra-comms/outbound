@@ -43,9 +43,6 @@ public class OutboundKafkaController {
     private RedisCacheService redisCacheService;
     
     private HashOperations hashOperations; //to access Redis cache
-    
-    @Autowired
-    private MinioClientService minioClientService;
 
     @EventListener(ApplicationStartedEvent.class)
     public void onMessage() {
@@ -60,7 +57,7 @@ public class OutboundKafkaController {
                             currentXmsg = XMessageParser.parse(new ByteArrayInputStream(msg.value().getBytes()));
                             String channel = currentXmsg.getChannelURI();
                             String provider = currentXmsg.getProviderURI();
-                            IProvider iprovider = factoryProvider.getProvider(provider, channel, minioClientService);
+                            IProvider iprovider = factoryProvider.getProvider(provider, channel);
                             iprovider.processOutBoundMessageF(currentXmsg)
                             	.doOnError(new Consumer<Throwable>() {
 				                    @Override
