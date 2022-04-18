@@ -22,8 +22,8 @@ jobs:
         run: |
           echo $RELEASE_VERSION
           echo ${{ steps.vars.outputs.tag }}
-          docker build . --file Dockerfile --build-arg username=${{ secrets.GH_USERNAME }} --build-arg token=${{ secrets.GH_TOKEN }} --tag samagragovernance/orchestrator:$RELEASE_VERSION
+          docker build . --file Dockerfile --build-arg username=${{ secrets.GH_USERNAME }} --build-arg token=${{ secrets.GH_TOKEN }} --tag samagragovernance/outbound:$RELEASE_VERSION
       - name: Push the tagged Docker image
         env:
           RELEASE_VERSION: ${{ steps.vars.outputs.tag }}
-        run: docker push samagragovernance/orchestrator:$RELEASE_VERSION
+        run: docker push samagragovernance/outbound:$RELEASE_VERSION
