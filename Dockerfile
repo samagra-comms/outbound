@@ -28,7 +28,7 @@ ADD /src $HOME/src
 RUN mvn package -s $HOME/settings.xml -DskipTests=true
 
 # Package stage
-FROM openjdk:12-alpine
+FROM openjdk:11
 ENV HOME=/home/app
 ENV export $(cat .env | xargs)
 WORKDIR $HOME
