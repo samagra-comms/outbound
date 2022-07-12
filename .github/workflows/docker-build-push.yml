@@ -1,5 +1,5 @@
-name: Docker Build & Push on Tag
-
+# Docker Build & Push on Tag
+name: Docker Build
 on:
   push:
     tags:
