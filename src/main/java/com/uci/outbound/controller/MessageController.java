@@ -98,20 +98,21 @@ public class MessageController {
 
                             /* Template id required check for cdac sms adapter */
                             if(adapter.path("channel").asText().equalsIgnoreCase("sms")
-                                    &&  adapter.path("provider").asText().equalsIgnoreCase("cdac")
-                                    && (request.getTo().getMeta() == null || request.getTo().getMeta().get("templateId") == null || request.getTo().getMeta().get("templateId").isEmpty())) {
-                                response.setStatus(HttpStatus.BAD_REQUEST.value());
-                                response.setError(HttpStatus.BAD_REQUEST.name());
-                                response.setMessage("Template id in meta of to is required for firebase adapter messaging.");
-                                return ResponseEntity.badRequest().body(response);
-                            } else {
-                                HashMap<String, String> transformerMeta = new HashMap<>();
-                                transformerMeta.put("templateId", request.getTo().getMeta().get("templateId"));
-                                Transformer transformer = Transformer.builder().metaData(transformerMeta).build();
-                                ArrayList<Transformer> transformers = new ArrayList<>();
-                                transformers.add(transformer);
+                                    &&  adapter.path("provider").asText().equalsIgnoreCase("cdac")) {
+                                if(request.getTo().getMeta() == null || request.getTo().getMeta().get("templateId") == null || request.getTo().getMeta().get("templateId").isEmpty()) {
+                                    response.setStatus(HttpStatus.BAD_REQUEST.value());
+                                    response.setError(HttpStatus.BAD_REQUEST.name());
+                                    response.setMessage("Template id in meta of to is required for firebase adapter messaging.");
+                                    return ResponseEntity.badRequest().body(response);
+                                } else {
+                                    HashMap<String, String> transformerMeta = new HashMap<>();
+                                    transformerMeta.put("templateId", request.getTo().getMeta().get("templateId"));
+                                    Transformer transformer = Transformer.builder().metaData(transformerMeta).build();
+                                    ArrayList<Transformer> transformers = new ArrayList<>();
+                                    transformers.add(transformer);
 
-                                xmsg.setTransformers(transformers);
+                                    xmsg.setTransformers(transformers);
+                                }
                             }
 
                             /* FCM token required check for firebase adapter */
