@@ -38,23 +38,13 @@ public class MessageController {
                 .path("/message/send")
                 .build();
         if(request.getAdapterId() == null || request.getAdapterId().isEmpty()
-            || request.getMobile() == null || request.getMobile().isEmpty()
-            || request.getPayload() == null
+            || request.getTo() == null || request.getTo().getUserID() == null
+                || request.getTo().getUserID().isEmpty() || request.getTo().getDeviceType() == null || request.getPayload() == null
         ) {
             response.setStatus(HttpStatus.BAD_REQUEST.value());
             response.setError(HttpStatus.BAD_REQUEST.name());
-            response.setMessage("Adapter id, mobile & payload are required.");
+            response.setMessage("Adapter id, to with userID, deviceType & payload are required.");
             return Mono.just(ResponseEntity.badRequest().body(response));
-            //        } else if(request.getPayload().getMedia() != null && !(
-//                request.getPayload().getMedia().getCategory().equals(MediaCategory.IMAGE_URL)
-//                || request.getPayload().getMedia().getCategory().equals(MediaCategory.AUDIO_URL)
-//                || request.getPayload().getMedia().getCategory().equals(MediaCategory.VIDEO_URL)
-//                || request.getPayload().getMedia().getCategory().equals(MediaCategory.FILE_URL))
-//        ) {
-//            params.setStatus("failed");
-//            params.setErrmsg("Media category can be image_url/audio_url/video_url/document_url only.");
-//            response.setParams(params);
-//            response.setResponseCode(HttpStatus.BAD_REQUEST.name());
         } else if(request.getPayload().getText() == null && request.getPayload().getMedia() == null) {
             response.setStatus(HttpStatus.BAD_REQUEST.value());
             response.setError(HttpStatus.BAD_REQUEST.name());
@@ -69,8 +59,8 @@ public class MessageController {
             return Mono.just(ResponseEntity.badRequest().body(response));
         } else {
             SenderReceiverInfo from = new SenderReceiverInfo().builder().userID("admin").build();
-            SenderReceiverInfo to = new SenderReceiverInfo().builder().userID(request.getMobile()).build();
-            MessageId msgId = new MessageId().builder().channelMessageId(UUID.randomUUID().toString()).replyId(request.getMobile()).build();
+            SenderReceiverInfo to = request.getTo();
+            MessageId msgId = new MessageId().builder().channelMessageId(UUID.randomUUID().toString()).replyId(to.getUserID()).build();
             XMessagePayload payload = request.payload;
 
             return botService.getAdapterByID(request.getAdapterId())
@@ -94,51 +84,45 @@ public class MessageController {
                                     .timestamp(Timestamp.valueOf(LocalDateTime.now()).getTime())
                                     .build();
 
+                            /**
+                             * Check for media content allowed for gupshup & netcore whatsapp adapter
+                             */
                             if(request.getPayload().getMedia() != null
                                     && !adapter.path("channel").asText().equalsIgnoreCase("whatsapp")
                             ) {
                                 response.setStatus(HttpStatus.BAD_REQUEST.value());
                                 response.setError(HttpStatus.BAD_REQUEST.name());
-                                response.setMessage("Media type is allowed only for gupshup whatsapp & netcore whatsapp adapter.");
+                                response.setMessage("Media is allowed only for gupshup whatsapp & netcore whatsapp adapter.");
                                 return ResponseEntity.badRequest().body(response);
-                            } else {
-
                             }
 
                             /* Template id required check for cdac sms adapter */
-//                            if(adapter.path("channel").asText().equalsIgnoreCase("sms")
-//                                    &&  adapter.path("provider").asText().equalsIgnoreCase("cdac")
-//                                    && (request.getTemplateId() == null || request.getTemplateId().isEmpty())) {
-//                                params.setStatus("failed");
-//                                params.setErrmsg("Template id is required for cdac-sms adapter.");
-//                                response.setParams(params);
-//                                response.setResponseCode(HttpStatus.BAD_REQUEST.name());
-//                                return response;
-//                            } else {
-//                                HashMap<String, String> transformerMeta = new HashMap<>();
-//                                transformerMeta.put("templateId", request.getTemplateId());
-//                                Transformer transformer = Transformer.builder().metaData(transformerMeta).build();
-//                                ArrayList<Transformer> transformers = new ArrayList<>();
-//                                transformers.add(transformer);
-//
-//                                xmsg.setTransformers(transformers);
-//                            }
+                            if(adapter.path("channel").asText().equalsIgnoreCase("sms")
+                                    &&  adapter.path("provider").asText().equalsIgnoreCase("cdac")
+                                    && (request.getTo().getMeta() == null || request.getTo().getMeta().get("templateId") == null || request.getTo().getMeta().get("templateId").isEmpty())) {
+                                response.setStatus(HttpStatus.BAD_REQUEST.value());
+                                response.setError(HttpStatus.BAD_REQUEST.name());
+                                response.setMessage("Template id in meta of to is required for firebase adapter messaging.");
+                                return ResponseEntity.badRequest().body(response);
+                            } else {
+                                HashMap<String, String> transformerMeta = new HashMap<>();
+                                transformerMeta.put("templateId", request.getTo().getMeta().get("templateId"));
+                                Transformer transformer = Transformer.builder().metaData(transformerMeta).build();
+                                ArrayList<Transformer> transformers = new ArrayList<>();
+                                transformers.add(transformer);
+
+                                xmsg.setTransformers(transformers);
+                            }
 
                             /* FCM token required check for firebase adapter */
-//                            if(adapter.path("channel").asText().equalsIgnoreCase("web")
-//                                    &&  adapter.path("provider").asText().equalsIgnoreCase("firebase")
-//                                    && (request.getFcmToken() == null || request.getFcmToken().isEmpty())) {
-//                                params.setStatus("failed");
-//                                params.setErrmsg("FCM Token is required for firebase adapter.");
-//                                response.setParams(params);
-//                                response.setResponseCode(HttpStatus.BAD_REQUEST.name());
-//                                return response;
-//                            } else {
-//                                Map<String, String> toMeta = new HashMap<>();
-//                                toMeta.put("fcmToken", request.getFcmToken());
-//                                to.setMeta(toMeta);
-//                                xmsg.setTo(to);
-//                            }
+                            if(adapter.path("channel").asText().equalsIgnoreCase("web")
+                                    &&  adapter.path("provider").asText().equalsIgnoreCase("firebase")
+                                    && (request.getTo().getMeta() == null || request.getTo().getMeta().get("fcmToken") == null || request.getTo().getMeta().get("fcmToken").isEmpty())) {
+                                response.setStatus(HttpStatus.BAD_REQUEST.value());
+                                response.setError(HttpStatus.BAD_REQUEST.name());
+                                response.setMessage("FCM token in meta of to is required for firebase adapter messaging.");
+                                return ResponseEntity.badRequest().body(response);
+                            }
 
                             try {
                                 outboundService.sendOutboundMessage(xmsg);
