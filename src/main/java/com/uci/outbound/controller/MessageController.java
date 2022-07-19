@@ -42,19 +42,19 @@ public class MessageController {
                 || request.getTo().getUserID().isEmpty() || request.getTo().getDeviceType() == null || request.getPayload() == null
         ) {
             response.setStatus(HttpStatus.BAD_REQUEST.value());
-            response.setError(HttpStatus.BAD_REQUEST.name());
+            response.setError(HttpStatus.BAD_REQUEST.getReasonPhrase());
             response.setMessage("Adapter id, to with userID, deviceType & payload are required.");
             return Mono.just(ResponseEntity.badRequest().body(response));
         } else if(request.getPayload().getText() == null && request.getPayload().getMedia() == null) {
             response.setStatus(HttpStatus.BAD_REQUEST.value());
-            response.setError(HttpStatus.BAD_REQUEST.name());
+            response.setError(HttpStatus.BAD_REQUEST.getReasonPhrase());
             response.setMessage("Payload should have either text or media.");
             return Mono.just(ResponseEntity.badRequest().body(response));
         } else if(request.getPayload().getMedia() != null
                 && (request.getPayload().getMedia().getUrl() == null || request.getPayload().getMedia().getCategory() == null)
         ) {
             response.setStatus(HttpStatus.BAD_REQUEST.value());
-            response.setError(HttpStatus.BAD_REQUEST.name());
+            response.setError(HttpStatus.BAD_REQUEST.getReasonPhrase());
             response.setMessage("Payload media should have category and url.");
             return Mono.just(ResponseEntity.badRequest().body(response));
         } else {
@@ -91,7 +91,7 @@ public class MessageController {
                                     && !adapter.path("channel").asText().equalsIgnoreCase("whatsapp")
                             ) {
                                 response.setStatus(HttpStatus.BAD_REQUEST.value());
-                                response.setError(HttpStatus.BAD_REQUEST.name());
+                                response.setError(HttpStatus.BAD_REQUEST.getReasonPhrase());
                                 response.setMessage("Media is allowed only for gupshup whatsapp & netcore whatsapp adapter.");
                                 return ResponseEntity.badRequest().body(response);
                             }
@@ -101,7 +101,7 @@ public class MessageController {
                                     &&  adapter.path("provider").asText().equalsIgnoreCase("cdac")) {
                                 if(request.getTo().getMeta() == null || request.getTo().getMeta().get("templateId") == null || request.getTo().getMeta().get("templateId").isEmpty()) {
                                     response.setStatus(HttpStatus.BAD_REQUEST.value());
-                                    response.setError(HttpStatus.BAD_REQUEST.name());
+                                    response.setError(HttpStatus.BAD_REQUEST.getReasonPhrase());
                                     response.setMessage("Template id in meta of to is required for firebase adapter messaging.");
                                     return ResponseEntity.badRequest().body(response);
                                 } else {
@@ -120,7 +120,7 @@ public class MessageController {
                                     &&  adapter.path("provider").asText().equalsIgnoreCase("firebase")
                                     && (request.getTo().getMeta() == null || request.getTo().getMeta().get("fcmToken") == null || request.getTo().getMeta().get("fcmToken").isEmpty())) {
                                 response.setStatus(HttpStatus.BAD_REQUEST.value());
-                                response.setError(HttpStatus.BAD_REQUEST.name());
+                                response.setError(HttpStatus.BAD_REQUEST.getReasonPhrase());
                                 response.setMessage("FCM token in meta of to is required for firebase adapter messaging.");
                                 return ResponseEntity.badRequest().body(response);
                             }
