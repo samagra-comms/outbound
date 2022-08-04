@@ -167,7 +167,10 @@ public class MessageController {
                                                             @Override
                                                             public ResponseEntity<HttpApiResponse> apply(XMessageDAO xMessageDAO) {
                                                                 log.info("XMessage Object saved is with sent user ID >> " + xMessageDAO.getUserId());
-                                                                response.setMessage("Message sent with message id: "+xMessageDAO.getMessageId());
+                                                                response.setMessage("Message sent.");
+                                                                Map<String, String> resultNode = new HashMap<>();
+                                                                resultNode.put("messageId", xMessageDAO.getMessageId());
+                                                                response.setResult(resultNode);
                                                                 return ResponseEntity.ok(response);
                                                             }
                                                         });
