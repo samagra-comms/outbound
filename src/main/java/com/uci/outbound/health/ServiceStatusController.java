@@ -28,6 +28,26 @@ public class ServiceStatusController {
 	@Autowired 
 	private HealthService healthService;
 
+    /**
+     * In use by sunbird team - to check service liveliness & readliness
+     * @return
+     * @throws JsonProcessingException
+     */
+    @RequestMapping(value = "/health", method = RequestMethod.GET, produces = { "application/json", "text/json" })
+    public ResponseEntity<ApiResponse> statusCheck() throws JsonProcessingException {
+        ObjectMapper mapper = new ObjectMapper();
+        JsonNode resultNode = mapper.readTree("{\"healthy\":true}");
+
+        ApiResponse response = ApiResponse.builder()
+                .id("api.service.health.cassandra")
+                .params(ApiResponseParams.builder().build())
+                .responseCode(HttpStatus.OK.name())
+                .result(resultNode)
+                .build();
+
+        return ResponseEntity.ok(response);
+    }
+
     @RequestMapping(value = "/health/cassandra", method = RequestMethod.GET, produces = { "application/json", "text/json" })
     public ResponseEntity<ApiResponse> cassandraStatusCheck() throws IOException, JsonProcessingException {
         ApiResponse response = ApiResponse.builder()
