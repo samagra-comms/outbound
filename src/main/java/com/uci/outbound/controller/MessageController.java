@@ -93,6 +93,10 @@ public class MessageController {
                                     .timestamp(Timestamp.valueOf(LocalDateTime.now()).getTime())
                                     .build();
 
+                            if(request.getTags() != null) {
+                                xmsg.setTags(request.getTags());
+                            }
+
                             /**
                              * Check for media content allowed for gupshup & netcore whatsapp adapter
                              */
