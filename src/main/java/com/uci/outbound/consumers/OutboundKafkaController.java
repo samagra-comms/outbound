@@ -9,7 +9,6 @@ import lombok.extern.slf4j.Slf4j;
 import messagerosa.core.model.XMessage;
 import com.uci.dao.utils.XMessageDAOUtils;
 import com.uci.utils.cache.service.RedisCacheService;
-import com.uci.utils.cdn.samagra.MinioClientService;
 
 import io.fusionauth.client.FusionAuthClient;
 import io.fusionauth.domain.api.LoginRequest;
