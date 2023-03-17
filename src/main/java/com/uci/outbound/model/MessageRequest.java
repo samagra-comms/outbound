@@ -8,6 +8,7 @@ import messagerosa.core.model.XMessagePayload;
 
 import javax.annotation.Nullable;
 import javax.sound.midi.Receiver;
+import java.util.List;
 
 @Setter
 @Getter
@@ -15,4 +16,5 @@ public class MessageRequest {
     public String adapterId;
     public SenderReceiverInfo to;
     public XMessagePayload payload;
+    public List<String> tags;
 }
