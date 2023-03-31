@@ -89,25 +89,30 @@ public class OutboundKafkaController {
                 }).subscribe(new Consumer<XMessage>() {
                     @Override
                     public void accept(XMessage xMessage) {
-                        XMessageDAO dao = XMessageDAOUtils.convertXMessageToDAO(xMessage);
+                        if(xMessage.getApp() != null) {
+                            XMessageDAO dao = XMessageDAOUtils.convertXMessageToDAO(xMessage);
 
-                        redisCacheService.setXMessageDaoCache(xMessage.getTo().getUserID(), dao);
+                            redisCacheService.setXMessageDaoCache(xMessage.getTo().getUserID(), dao);
 
-                        xMessageRepo
-                                .insert(dao)
-                                .doOnError(new Consumer<Throwable>() {
-                                    @Override
-                                    public void accept(Throwable e) {
-                                        redisCacheService.deleteXMessageDaoCache(xMessage.getTo().getUserID());
-                                        log.error("Exception in xMsg Dao Save:"+e.getMessage());
-                                    }
-                                })
-                                .subscribe(new Consumer<XMessageDAO>() {
-                                    @Override
-                                    public void accept(XMessageDAO xMessageDAO) {
-                                        log.info("XMessage Object saved is with sent user ID >> " + xMessageDAO.getUserId());
-                                    }
-                                });
+                            xMessageRepo
+                                    .insert(dao)
+                                    .doOnError(new Consumer<Throwable>() {
+                                        @Override
+                                        public void accept(Throwable e) {
+                                            redisCacheService.deleteXMessageDaoCache(xMessage.getTo().getUserID());
+                                            log.error("Exception in xMsg Dao Save:"+e.getMessage());
+                                        }
+                                    })
+                                    .subscribe(new Consumer<XMessageDAO>() {
+                                        @Override
+                                        public void accept(XMessageDAO xMessageDAO) {
+                                            log.info("XMessage Object saved is with sent user ID >> " + xMessageDAO.getUserId());
+                                        }
+                                    });
+                        } else {
+                             log.info("XMessage -> app is empty");
+                        }
+
                     }
                 });
     }
