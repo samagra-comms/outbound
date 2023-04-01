@@ -21,6 +21,7 @@ import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
 import reactor.kafka.receiver.ReceiverRecord;
+import javax.xml.bind.JAXBException;
 
 import java.io.ByteArrayInputStream;
 import java.util.function.Consumer;
