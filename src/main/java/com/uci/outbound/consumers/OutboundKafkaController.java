@@ -110,7 +110,11 @@ public class OutboundKafkaController {
                                         });
                             }catch(Exception e){
                                 log.error("Exception in convertXMessageToDAO:" + e.getMessage());
-                                log.error("The current XMessage was " + xMessage.toXML());
+                                try{
+                                    log.error("The current XMessage was " + xMessage.toXML());
+                                }catch(JAXBException j) {
+                                    log.error("Unable to parse the current XMessage " + xMessage.toString());
+                                }
                             }
                         } else {
                              log.info("XMessage -> app is empty");
