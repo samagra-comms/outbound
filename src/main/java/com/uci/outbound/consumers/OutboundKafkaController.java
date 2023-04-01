@@ -115,6 +115,8 @@ public class OutboundKafkaController {
                                     log.error("The current XMessage was " + xMessage.toXML());
                                 }catch(JAXBException j) {
                                     log.error("Unable to parse the current XMessage " + xMessage.toString());
+                                }catch(Exception ge) {
+                                    log.error("Unable to parse the current XMessage ge " + xMessage.toString());
                                 }
                             }
                         } else {
