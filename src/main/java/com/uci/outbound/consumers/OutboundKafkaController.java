@@ -108,7 +108,7 @@ public class OutboundKafkaController {
                                                 log.info("XMessage Object saved is with sent user ID >> " + xMessageDAO.getUserId());
                                             }
                                         });
-                            }catch(e){
+                            }catch(Exception e){
                                 log.error("Exception in convertXMessageToDAO:" + e.getMessage());
                                 log.error("The current XMessage was " + xMessage.toXML());
                             }
