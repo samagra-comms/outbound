@@ -90,25 +90,28 @@ public class OutboundKafkaController {
                     @Override
                     public void accept(XMessage xMessage) {
                         if(xMessage.getApp() != null) {
-                            XMessageDAO dao = XMessageDAOUtils.convertXMessageToDAO(xMessage);
-
-                            redisCacheService.setXMessageDaoCache(xMessage.getTo().getUserID(), dao);
-
-                            xMessageRepo
-                                    .insert(dao)
-                                    .doOnError(new Consumer<Throwable>() {
-                                        @Override
-                                        public void accept(Throwable e) {
-                                            redisCacheService.deleteXMessageDaoCache(xMessage.getTo().getUserID());
-                                            log.error("Exception in xMsg Dao Save:"+e.getMessage());
-                                        }
-                                    })
-                                    .subscribe(new Consumer<XMessageDAO>() {
-                                        @Override
-                                        public void accept(XMessageDAO xMessageDAO) {
-                                            log.info("XMessage Object saved is with sent user ID >> " + xMessageDAO.getUserId());
-                                        }
-                                    });
+                            try{
+                                XMessageDAO dao = XMessageDAOUtils.convertXMessageToDAO(xMessage);
+                                redisCacheService.setXMessageDaoCache(xMessage.getTo().getUserID(), dao);
+                                xMessageRepo
+                                        .insert(dao)
+                                        .doOnError(new Consumer<Throwable>() {
+                                            @Override
+                                            public void accept(Throwable e) {
+                                                redisCacheService.deleteXMessageDaoCache(xMessage.getTo().getUserID());
+                                                log.error("Exception in xMsg Dao Save:"+e.getMessage());
+                                            }
+                                        })
+                                        .subscribe(new Consumer<XMessageDAO>() {
+                                            @Override
+                                            public void accept(XMessageDAO xMessageDAO) {
+                                                log.info("XMessage Object saved is with sent user ID >> " + xMessageDAO.getUserId());
+                                            }
+                                        });
+                            }catch(e){
+                                log.error("Exception in convertXMessageToDAO:" + e.getMessage());
+                                log.error("The current XMessage was " + xMessage.toXML());
+                            }
                         } else {
                              log.info("XMessage -> app is empty");
                         }
