@@ -4,6 +4,9 @@ import com.uci.adapter.provider.factory.IProvider;
 import com.uci.adapter.provider.factory.ProviderFactory;
 import com.uci.dao.models.XMessageDAO;
 import com.uci.dao.repository.XMessageRepository;
+import com.uci.outbound.entity.EmailDetails;
+import com.uci.outbound.service.EmailService;
+import com.uci.outbound.service.EmailServiceImpl;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import messagerosa.core.model.XMessage;
@@ -14,6 +17,7 @@ import io.fusionauth.client.FusionAuthClient;
 import io.fusionauth.domain.api.LoginRequest;
 import messagerosa.xml.XMessageParser;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.context.event.ApplicationStartedEvent;
 import org.springframework.context.event.EventListener;
 import org.springframework.data.redis.core.HashOperations;
@@ -38,27 +42,33 @@ public class OutboundKafkaController {
 
     @Autowired
     private XMessageRepository xMessageRepo;
-    
+
     @Autowired
     private RedisCacheService redisCacheService;
-    
+
     private HashOperations hashOperations; //to access Redis cache
+
+    @Autowired
+    private EmailServiceImpl emailService;
+
+    @Value("${spring.mail.recipient}")
+    private String recipient;
 
     @EventListener(ApplicationStartedEvent.class)
     public void onMessage() {
-    	
+
         reactiveKafkaReceiver
                 .doOnNext(new Consumer<ReceiverRecord<String, String>>() {
                     @Override
                     public void accept(ReceiverRecord<String, String> msg) {
-                    	log.info("kafka message receieved!");
+                        log.info("kafka message receieved!");
                         XMessage currentXmsg = null;
                         try {
                             currentXmsg = XMessageParser.parse(new ByteArrayInputStream(msg.value().getBytes()));
                             sendOutboundMessage(currentXmsg);
                         } catch (Exception e) {
                             e.printStackTrace();
-                        }
+                            }
 
                     }
                 })
@@ -78,6 +88,7 @@ public class OutboundKafkaController {
      * @throws Exception
      */
     public void sendOutboundMessage(XMessage currentXmsg) throws Exception {
+        emailService.sendMailWithAttachment("Error in Outbound", "PFA", recipient, currentXmsg, "XMessage.txt");
         String channel = currentXmsg.getChannelURI();
         String provider = currentXmsg.getProviderURI();
         IProvider iprovider = factoryProvider.getProvider(provider, channel);
@@ -85,6 +96,7 @@ public class OutboundKafkaController {
                 .doOnError(new Consumer<Throwable>() {
                     @Override
                     public void accept(Throwable e) {
+                        emailService.sendMailWithAttachment("Error in Outbound", "PFA", recipient, currentXmsg, "XMessage.txt");
                         log.error("Exception in processOutBoundMessageF:"+e.getMessage());
                     }
                 }).subscribe(new Consumer<XMessage>() {
@@ -110,6 +122,7 @@ public class OutboundKafkaController {
                                             }
                                         });
                             }catch(Exception e){
+                                emailService.sendMailWithAttachment("Error in Outbound", "PFA", recipient, xMessage, "XMessage.txt");
                                 log.error("Exception in convertXMessageToDAO:" + e.getMessage());
                                 try{
                                     log.error("The current XMessage was " + xMessage.toXML());
@@ -126,8 +139,8 @@ public class OutboundKafkaController {
                     }
                 });
     }
-    
+
     private String redisKeyWithPrefix(String key) {
-    	return System.getenv("ENV")+"-"+key;
+        return System.getenv("ENV")+"-"+key;
     }
 }
