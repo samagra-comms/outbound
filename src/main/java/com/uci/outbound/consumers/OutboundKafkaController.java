@@ -4,25 +4,24 @@ import com.uci.adapter.provider.factory.IProvider;
 import com.uci.adapter.provider.factory.ProviderFactory;
 import com.uci.dao.models.XMessageDAO;
 import com.uci.dao.repository.XMessageRepository;
+import com.uci.dao.utils.XMessageDAOUtils;
+import com.uci.outbound.entity.EmailDetails;
+import com.uci.outbound.service.EmailServiceImpl;
+import com.uci.utils.cache.service.RedisCacheService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import messagerosa.core.model.XMessage;
-import com.uci.dao.utils.XMessageDAOUtils;
-import com.uci.utils.cache.service.RedisCacheService;
-
-import io.fusionauth.client.FusionAuthClient;
-import io.fusionauth.domain.api.LoginRequest;
 import messagerosa.xml.XMessageParser;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.context.event.ApplicationStartedEvent;
 import org.springframework.context.event.EventListener;
 import org.springframework.data.redis.core.HashOperations;
-import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
 import reactor.kafka.receiver.ReceiverRecord;
-import javax.xml.bind.JAXBException;
 
+import javax.xml.bind.JAXBException;
 import java.io.ByteArrayInputStream;
 import java.util.function.Consumer;
 
@@ -38,27 +37,33 @@ public class OutboundKafkaController {
 
     @Autowired
     private XMessageRepository xMessageRepo;
-    
+
     @Autowired
     private RedisCacheService redisCacheService;
-    
+
     private HashOperations hashOperations; //to access Redis cache
+
+    @Autowired
+    private EmailServiceImpl emailService;
+
+    @Value("${spring.mail.recipient}")
+    private String recipient;
 
     @EventListener(ApplicationStartedEvent.class)
     public void onMessage() {
-    	
+
         reactiveKafkaReceiver
                 .doOnNext(new Consumer<ReceiverRecord<String, String>>() {
                     @Override
                     public void accept(ReceiverRecord<String, String> msg) {
-                    	log.info("kafka message receieved!");
+                        log.info("kafka message receieved!");
                         XMessage currentXmsg = null;
                         try {
                             currentXmsg = XMessageParser.parse(new ByteArrayInputStream(msg.value().getBytes()));
                             sendOutboundMessage(currentXmsg);
                         } catch (Exception e) {
                             e.printStackTrace();
-                        }
+                            }
 
                     }
                 })
@@ -85,6 +90,7 @@ public class OutboundKafkaController {
                 .doOnError(new Consumer<Throwable>() {
                     @Override
                     public void accept(Throwable e) {
+                        sentEmail(currentXmsg, "Error in Outbound", "PFA", recipient, "XMessage.txt");
                         log.error("Exception in processOutBoundMessageF:"+e.getMessage());
                     }
                 }).subscribe(new Consumer<XMessage>() {
@@ -110,7 +116,9 @@ public class OutboundKafkaController {
                                             }
                                         });
                             }catch(Exception e){
+                                sentEmail(xMessage, "Error in Outbound", "PFA", recipient, "XMessage.txt");
                                 log.error("Exception in convertXMessageToDAO:" + e.getMessage());
+                                e.printStackTrace();
                                 try{
                                     log.error("The current XMessage was " + xMessage.toXML());
                                 }catch(JAXBException j) {
@@ -126,8 +134,21 @@ public class OutboundKafkaController {
                     }
                 });
     }
-    
+
     private String redisKeyWithPrefix(String key) {
-    	return System.getenv("ENV")+"-"+key;
+        return System.getenv("ENV")+"-"+key;
+    }
+
+    private void sentEmail(XMessage xMessage, String subject, String body, String recipient, String attachmentFileName){
+        log.info("Email Sending....");
+        EmailDetails emailDetails =  new EmailDetails().builder()
+                .subject(subject)
+                .msgBody(body)
+                .recipient(recipient)
+                .attachment(xMessage.toString())
+                .attachmentFileName(attachmentFileName)
+                .build();
+        log.info("EmailDetails :" + emailDetails);
+        emailService.sendMailWithAttachment(emailDetails);
     }
 }
