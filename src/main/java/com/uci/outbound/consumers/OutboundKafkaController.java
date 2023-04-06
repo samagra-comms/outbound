@@ -109,6 +109,7 @@ public class OutboundKafkaController {
                     public void accept(XMessage xMessage) {
                         if (xMessage.getApp() != null) {
                             try {
+                                log.info("Outbound convertXMessageToDAO : " + xMessage.toString());
                                 XMessageDAO dao = XMessageDAOUtils.convertXMessageToDAO(xMessage);
                                 redisCacheService.setXMessageDaoCache(xMessage.getTo().getUserID(), dao);
                                 xMessageRepo
