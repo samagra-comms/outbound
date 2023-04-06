@@ -68,7 +68,7 @@ public class OutboundKafkaController {
                             attachments.put("Exception", ExceptionUtils.getStackTrace(e));
                             attachments.put("XMessage", currentXmsg.toString());
                             sentEmail(currentXmsg, "Error in Outbound", "PFA", recipient, null, attachments);
-                            log.error("An Error Occored : "+e.getMessage());
+                            log.error("An Error Occored : " + e.getMessage());
                         }
                     }
                 })
@@ -86,6 +86,7 @@ public class OutboundKafkaController {
 
     /**
      * Send outbound message to user using the current xmsg
+     *
      * @param currentXmsg
      * @throws Exception
      */
@@ -101,13 +102,13 @@ public class OutboundKafkaController {
                         attachments.put("Exception", ExceptionUtils.getStackTrace(e));
                         attachments.put("XMessage", currentXmsg.toString());
                         sentEmail(currentXmsg, "Error in Outbound", "PFA", recipient, null, attachments);
-                        log.error("Exception in processOutBoundMessageF:"+e.getMessage());
+                        log.error("Exception in processOutBoundMessageF:" + e.getMessage());
                     }
                 }).subscribe(new Consumer<XMessage>() {
                     @Override
                     public void accept(XMessage xMessage) {
-                        if(xMessage.getApp() != null) {
-                            try{
+                        if (xMessage.getApp() != null) {
+                            try {
                                 XMessageDAO dao = XMessageDAOUtils.convertXMessageToDAO(xMessage);
                                 redisCacheService.setXMessageDaoCache(xMessage.getTo().getUserID(), dao);
                                 xMessageRepo
@@ -116,7 +117,7 @@ public class OutboundKafkaController {
                                             @Override
                                             public void accept(Throwable e) {
                                                 redisCacheService.deleteXMessageDaoCache(xMessage.getTo().getUserID());
-                                                log.error("Exception in xMsg Dao Save:"+e.getMessage());
+                                                log.error("Exception in xMsg Dao Save:" + e.getMessage());
                                             }
                                         })
                                         .subscribe(new Consumer<XMessageDAO>() {
@@ -125,23 +126,22 @@ public class OutboundKafkaController {
                                                 log.info("XMessage Object saved is with sent user ID >> " + xMessageDAO.getUserId());
                                             }
                                         });
-                            }catch(Exception e){
+                            } catch (Exception e) {
                                 HashMap<String, String> attachments = new HashMap<>();
                                 attachments.put("Exception", ExceptionUtils.getStackTrace(e));
                                 attachments.put("XMessage", currentXmsg.toString());
                                 sentEmail(xMessage, "Error in Outbound", "PFA", recipient, null, attachments);
                                 log.error("Exception in convertXMessageToDAO:" + e.getMessage());
-                                e.printStackTrace();
-                                try{
-                                    log.error("The current XMessage was " + xMessage.toXML());
-                                }catch(JAXBException j) {
-                                    log.error("Unable to parse the current XMessage " + xMessage.toString());
-                                }catch(Exception ge) {
-                                    log.error("Unable to parse the current XMessage ge " + xMessage.toString());
+                                try {
+                                    log.error("The current XMessage was : " + xMessage.toString());
+                                } catch (Exception ge) {
+                                    ge.printStackTrace();
+                                    log.error("Unable to parse the current XMessage : " + ge.getMessage() + " Xmessage : " + ge.getMessage());
                                 }
+                                e.printStackTrace();
                             }
                         } else {
-                             log.info("XMessage -> app is empty");
+                            log.info("XMessage -> app is empty");
                         }
 
                     }
@@ -149,7 +149,7 @@ public class OutboundKafkaController {
     }
 
     private String redisKeyWithPrefix(String key) {
-        return System.getenv("ENV")+"-"+key;
+        return System.getenv("ENV") + "-" + key;
     }
 
     private void sentEmail(XMessage xMessage, String subject, String body, String recipient, String attachmentFileName, HashMap<String, String> attachments) {
