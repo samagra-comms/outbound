@@ -150,10 +150,6 @@
 			<version>4.9.3</version>
 		</dependency>
 		<!-- Minio CDN Dependencies - End  -->
-		<dependency>
-			<groupId>org.springframework.boot</groupId>
-			<artifactId>spring-boot-starter-mail</artifactId>
-		</dependency>
 	</dependencies>
 
 	<build>

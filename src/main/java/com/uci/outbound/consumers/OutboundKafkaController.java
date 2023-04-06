@@ -12,6 +12,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import messagerosa.core.model.XMessage;
 import messagerosa.xml.XMessageParser;
+import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.context.event.ApplicationStartedEvent;
@@ -23,6 +24,8 @@ import reactor.kafka.receiver.ReceiverRecord;
 
 import javax.xml.bind.JAXBException;
 import java.io.ByteArrayInputStream;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.function.Consumer;
 
 @Component
@@ -51,7 +54,6 @@ public class OutboundKafkaController {
 
     @EventListener(ApplicationStartedEvent.class)
     public void onMessage() {
-
         reactiveKafkaReceiver
                 .doOnNext(new Consumer<ReceiverRecord<String, String>>() {
                     @Override
@@ -62,16 +64,21 @@ public class OutboundKafkaController {
                             currentXmsg = XMessageParser.parse(new ByteArrayInputStream(msg.value().getBytes()));
                             sendOutboundMessage(currentXmsg);
                         } catch (Exception e) {
-                            e.printStackTrace();
-                            }
-
+                            HashMap<String, String> attachments = new HashMap<>();
+                            attachments.put("Exception", ExceptionUtils.getStackTrace(e));
+                            attachments.put("XMessage", currentXmsg.toString());
+                            sentEmail(currentXmsg, "Error in Outbound", "PFA", recipient, null, attachments);
+                            log.error("An Error Occored : "+e.getMessage());
+                        }
                     }
                 })
                 .doOnError(new Consumer<Throwable>() {
                     @Override
                     public void accept(Throwable e) {
-                        System.out.println(e.getMessage());
-                        log.error("KafkaFlux exception", e);
+                        HashMap<String, String> attachments = new HashMap<>();
+                        attachments.put("Exception", ExceptionUtils.getStackTrace(e));
+                        sentEmail(null, "Error in Outbound", "PFA", recipient, null, attachments);
+                        log.error("KafkaFlux exception", e.getMessage());
                     }
                 })
                 .subscribe();
@@ -90,7 +97,10 @@ public class OutboundKafkaController {
                 .doOnError(new Consumer<Throwable>() {
                     @Override
                     public void accept(Throwable e) {
-                        sentEmail(currentXmsg, "Error in Outbound", "PFA", recipient, "XMessage.txt");
+                        HashMap<String, String> attachments = new HashMap<>();
+                        attachments.put("Exception", ExceptionUtils.getStackTrace(e));
+                        attachments.put("XMessage", currentXmsg.toString());
+                        sentEmail(currentXmsg, "Error in Outbound", "PFA", recipient, null, attachments);
                         log.error("Exception in processOutBoundMessageF:"+e.getMessage());
                     }
                 }).subscribe(new Consumer<XMessage>() {
@@ -116,7 +126,10 @@ public class OutboundKafkaController {
                                             }
                                         });
                             }catch(Exception e){
-                                sentEmail(xMessage, "Error in Outbound", "PFA", recipient, "XMessage.txt");
+                                HashMap<String, String> attachments = new HashMap<>();
+                                attachments.put("Exception", ExceptionUtils.getStackTrace(e));
+                                attachments.put("XMessage", currentXmsg.toString());
+                                sentEmail(xMessage, "Error in Outbound", "PFA", recipient, null, attachments);
                                 log.error("Exception in convertXMessageToDAO:" + e.getMessage());
                                 e.printStackTrace();
                                 try{
@@ -139,16 +152,17 @@ public class OutboundKafkaController {
         return System.getenv("ENV")+"-"+key;
     }
 
-    private void sentEmail(XMessage xMessage, String subject, String body, String recipient, String attachmentFileName){
+    private void sentEmail(XMessage xMessage, String subject, String body, String recipient, String attachmentFileName, HashMap<String, String> attachments) {
         log.info("Email Sending....");
-        EmailDetails emailDetails =  new EmailDetails().builder()
+        EmailDetails emailDetails = new EmailDetails().builder()
                 .subject(subject)
                 .msgBody(body)
                 .recipient(recipient)
-                .attachment(xMessage.toString())
+                .attachment(xMessage == null ? "" : xMessage.toString())
                 .attachmentFileName(attachmentFileName)
+                .attachments(attachments)
                 .build();
-        log.info("EmailDetails :" + emailDetails);
+//        log.info("EmailDetails :" + emailDetails);
         emailService.sendMailWithAttachment(emailDetails);
     }
 }
