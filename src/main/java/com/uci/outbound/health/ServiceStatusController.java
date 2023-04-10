@@ -10,6 +10,7 @@ import com.uci.dao.service.HealthService;
 import com.uci.utils.model.ApiResponse;
 import com.uci.utils.model.ApiResponseParams;
 import lombok.extern.slf4j.Slf4j;
+import reactor.core.publisher.Mono;
 
 import java.io.IOException;
 
@@ -49,38 +50,37 @@ public class ServiceStatusController {
     }
 
     @RequestMapping(value = "/health/cassandra", method = RequestMethod.GET, produces = { "application/json", "text/json" })
-    public ResponseEntity<ApiResponse> cassandraStatusCheck() throws IOException, JsonProcessingException {
-        ApiResponse response = ApiResponse.builder()
-                .id("api.service.health.cassandra")
-                .params(ApiResponseParams.builder().build())
-                .responseCode(HttpStatus.OK.name())
-                .result(healthService.getCassandraHealthNode())
-                .build();
-
-        return ResponseEntity.ok(response);
+    public Mono<ResponseEntity<ApiResponse>> cassandraStatusCheck() {
+		return healthService.getCassandraHealthNode().map(result->
+				ApiResponse.builder()
+				.id("api.service.health.cassandra")
+				.params(ApiResponseParams.builder().build())
+				.responseCode(HttpStatus.OK.name())
+				.result(result)
+				.build())
+				.map(ResponseEntity::ok);
     }
 
     @RequestMapping(value = "/health/kafka", method = RequestMethod.GET, produces = { "application/json", "text/json" })
-    public ResponseEntity<ApiResponse> kafkaStatusCheck() throws IOException, JsonProcessingException {
-        ApiResponse response = ApiResponse.builder()
-                .id("api.service.health.kafka")
-                .params(ApiResponseParams.builder().build())
-                .responseCode(HttpStatus.OK.name())
-                .result(healthService.getKafkaHealthNode())
-                .build();
-
-        return ResponseEntity.ok(response);
+    public Mono<ResponseEntity<ApiResponse>> kafkaStatusCheck() {
+		return healthService.getKafkaHealthNode().map(result->
+				ApiResponse.builder()
+				.id("api.service.health.kafka")
+				.params(ApiResponseParams.builder().build())
+				.responseCode(HttpStatus.OK.name())
+				.result(result)
+				.build())
+				.map(ResponseEntity::ok);
     }
 
     @RequestMapping(value = "/health/campaign", method = RequestMethod.GET, produces = { "application/json", "text/json" })
-    public ResponseEntity<ApiResponse> campaignUrlStatusCheck() throws JsonProcessingException, IOException {
-        ApiResponse response = ApiResponse.builder()
-                .id("api.service.health.campaign")
-                .params(ApiResponseParams.builder().build())
-                .responseCode(HttpStatus.OK.name())
-                .result(healthService.getCampaignUrlHealthNode())
-                .build();
-
-        return ResponseEntity.ok(response);
+    public Mono<ResponseEntity<ApiResponse>> campaignUrlStatusCheck() {
+        return healthService.getCampaignUrlHealthNode().map(result ->
+				ApiResponse.builder().id("api.service.health.campaign")
+				.params(ApiResponseParams.builder().build())
+				.responseCode(HttpStatus.OK.name())
+				.result(result)
+				.build())
+				.map(ResponseEntity::ok);
     }
 }
