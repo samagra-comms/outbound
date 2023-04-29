@@ -1,6 +1,7 @@
 package com.uci.outbound.Application;
 
 import org.apache.kafka.clients.consumer.ConsumerConfig;
+import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -38,12 +39,12 @@ public class ReactiveKafkaConfiguration {
     ReceiverOptions<String, String> kafkaReceiverOptions(@Value("${outbound}") String[] inTopicName) {
         ReceiverOptions<String, String> options = ReceiverOptions.create(kafkaConsumerConfiguration());
         return options.subscription(Arrays.asList(inTopicName))
-                .withKeyDeserializer(new JsonDeserializer<>())
+                .withKeyDeserializer(new StringDeserializer())
                 .withValueDeserializer(new JsonDeserializer());
     }
 
     @Bean
-    Flux<ReceiverRecord<String, String>> reactiveKafkaReceiver(ReceiverOptions<String, String> kafkaReceiverOptions) {
-        return KafkaReceiver.create(kafkaReceiverOptions).receive();
+    Flux<ConsumerRecord<String, String>> reactiveKafkaReceiver(ReceiverOptions<String, String> kafkaReceiverOptions) {
+        return KafkaReceiver.create(kafkaReceiverOptions).receiveAtmostOnce();
     }
 }

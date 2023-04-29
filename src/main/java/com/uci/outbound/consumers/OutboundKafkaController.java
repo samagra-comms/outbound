@@ -8,7 +8,17 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import messagerosa.core.model.XMessage;
 import com.uci.dao.utils.XMessageDAOUtils;
+import com.uci.utils.kafka.adapter.TextMapGetterAdapter;
+import com.uci.utils.kafka.adapter.TextMapSetterAdapter;
+
+import io.grpc.Context;
+import io.opentelemetry.api.GlobalOpenTelemetry;
+import io.opentelemetry.api.trace.Span;
+import io.opentelemetry.api.trace.Tracer;
+import io.opentelemetry.context.Scope;
 import messagerosa.xml.XMessageParser;
+
+import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.context.event.ApplicationStartedEvent;
 import org.springframework.context.event.EventListener;
@@ -24,24 +34,31 @@ import java.util.function.Consumer;
 @Slf4j
 public class OutboundKafkaController {
 
-    private final Flux<ReceiverRecord<String, String>> reactiveKafkaReceiver;
+    private final Flux<ConsumerRecord<String, String>> reactiveKafkaReceiver;
 
     @Autowired
     private ProviderFactory factoryProvider;
 
     @Autowired
     private XMessageRepository xMessageRepo;
+    
+    @Autowired
+	private Tracer tracer;
 
     @EventListener(ApplicationStartedEvent.class)
     public void onMessage() {
     	
         reactiveKafkaReceiver
-                .doOnNext(new Consumer<ReceiverRecord<String, String>>() {
+                .doOnNext(new Consumer<ConsumerRecord<String, String>>() {
                     @Override
-                    public void accept(ReceiverRecord<String, String> msg) {
-                    	log.info("kafka message receieved");
-                        XMessage currentXmsg = null;
-                        try {
+                    public void accept(ConsumerRecord<String, String> msg) {
+                    	log.info("kafka message receieved");                    	
+                    	XMessage currentXmsg = null;
+//                    	Context extractedContext = GlobalOpenTelemetry.getPropagators().getTextMapPropagator().extract(Context.current(), msg.headers(), TextMapGetterAdapter.getter);
+//                        log.info("Opentelemetry extracted context : "+extractedContext);
+                        
+//                		try (Scope scope = extractedContext.makeCurrent()) {
+                    	try {
                             currentXmsg = XMessageParser.parse(new ByteArrayInputStream(msg.value().getBytes()));
                             String channel = currentXmsg.getChannelURI();
                             String provider = currentXmsg.getProviderURI();
