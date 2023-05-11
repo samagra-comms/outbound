@@ -52,6 +52,8 @@ public class OutboundKafkaController {
     @Value("${spring.mail.recipient}")
     private String recipient;
 
+    private static long count = 0;
+
     @EventListener(ApplicationStartedEvent.class)
     public void onMessage() {
         reactiveKafkaReceiver
@@ -125,6 +127,8 @@ public class OutboundKafkaController {
                                             @Override
                                             public void accept(XMessageDAO xMessageDAO) {
                                                 log.info("XMessage Object saved is with sent user ID >> " + xMessageDAO.getUserId());
+                                                count++;
+                                                log.info("Insert Record in Cass : "+count);
                                             }
                                         });
                             } catch (Exception e) {
