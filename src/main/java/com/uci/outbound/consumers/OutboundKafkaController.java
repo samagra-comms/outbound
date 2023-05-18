@@ -52,17 +52,22 @@ public class OutboundKafkaController {
     @Value("${spring.mail.recipient}")
     private String recipient;
 
+    private static long count = 0;
+
     @EventListener(ApplicationStartedEvent.class)
     public void onMessage() {
+
         reactiveKafkaReceiver
                 .doOnNext(new Consumer<ReceiverRecord<String, String>>() {
                     @Override
                     public void accept(ReceiverRecord<String, String> msg) {
                         log.info("kafka message receieved!");
+                        final long startTime = System.nanoTime();
+                        logTimeTaken(startTime, 0, "process-start: %d ms");
                         XMessage currentXmsg = null;
                         try {
                             currentXmsg = XMessageParser.parse(new ByteArrayInputStream(msg.value().getBytes()));
-                            sendOutboundMessage(currentXmsg);
+                            sendOutboundMessage(currentXmsg, startTime);
                         } catch (Exception e) {
                             HashMap<String, String> attachments = new HashMap<>();
                             attachments.put("Exception", ExceptionUtils.getStackTrace(e));
@@ -90,7 +95,7 @@ public class OutboundKafkaController {
      * @param currentXmsg
      * @throws Exception
      */
-    public void sendOutboundMessage(XMessage currentXmsg) throws Exception {
+    public void sendOutboundMessage(XMessage currentXmsg, long startTime) throws Exception {
         String channel = currentXmsg.getChannelURI();
         String provider = currentXmsg.getProviderURI();
         IProvider iprovider = factoryProvider.getProvider(provider, channel);
@@ -125,6 +130,9 @@ public class OutboundKafkaController {
                                             @Override
                                             public void accept(XMessageDAO xMessageDAO) {
                                                 log.info("XMessage Object saved is with sent user ID >> " + xMessageDAO.getUserId());
+                                                count++;
+//                                                log.info("Insert Record in Cass : "+count);
+                                                logTimeTaken(startTime, 0, "Insert Record in Cass : " + count +" ::: process-end: %d ms");
                                             }
                                         });
                             } catch (Exception e) {
@@ -165,5 +173,15 @@ public class OutboundKafkaController {
                 .build();
 //        log.info("EmailDetails :" + emailDetails);
         emailService.sendMailWithAttachment(emailDetails);
+    }
+
+    private void logTimeTaken(long startTime, int checkpointID, String formatedMsg) {
+        long endTime = System.nanoTime();
+        long duration = (endTime - startTime) / 1000000;
+        if(formatedMsg == null) {
+            log.info(String.format("CP-%d: %d ms", checkpointID, duration));
+        } else {
+            log.info(String.format(formatedMsg, duration));
+        }
     }
 }
