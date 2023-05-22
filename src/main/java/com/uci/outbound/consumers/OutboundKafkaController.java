@@ -132,7 +132,9 @@ public class OutboundKafkaController {
                                                 log.info("XMessage Object saved is with sent user ID >> " + xMessageDAO.getUserId());
                                                 count++;
 //                                                log.info("Insert Record in Cass : "+count);
-                                                logTimeTaken(startTime, 0, "Insert Record in Cass : " + count +" ::: process-end: %d ms");
+                                                if (provider.toLowerCase().equals("firebase") && channel.toLowerCase().equals("web")) {
+                                                    logTimeTaken(startTime, 0, "Insert Record in Cass : " + count + " ::: process-end: %d ms");
+                                                }
                                             }
                                         });
                             } catch (Exception e) {
