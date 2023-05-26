@@ -50,7 +50,7 @@ public class OutboundKafkaController {
     @Value("${spring.mail.recipient}")
     private String recipient;
 
-    private static long count = 0;
+    private long notificationCount, otherCount;
 
     @EventListener(ApplicationStartedEvent.class)
     public void onMessage() {
@@ -128,10 +128,12 @@ public class OutboundKafkaController {
                                             @Override
                                             public void accept(XMessageDAO xMessageDAO) {
                                                 log.info("XMessage Object saved is with sent user ID >> " + xMessageDAO.getUserId());
-                                                count++;
-//                                                log.info("Insert Record in Cass : "+count);
-                                                if (provider.toLowerCase().equals("firebase") && channel.toLowerCase().equals("web")) {
-                                                    logTimeTaken(startTime, 0, "Insert Record in Cass : " + count + " ::: process-end: %d ms");
+                                                if(provider.toLowerCase().equals("firebase") && channel.toLowerCase().equals("web")){
+                                                    notificationCount++;
+                                                    logTimeTaken(startTime, 0, "Notification Insert Record in Cass : " + notificationCount +" ::: process-end: %d ms");
+                                                } else {
+                                                    otherCount++;
+                                                    logTimeTaken(startTime, 0, "Other Insert Record in Cass : " + otherCount +" ::: process-end: %d ms");
                                                 }
                                             }
                                         });
