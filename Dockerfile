@@ -28,11 +28,11 @@ ADD /src $HOME/src
 RUN mvn package -s $HOME/settings.xml -DskipTests=true
 
 # Package stage
-FROM openjdk:11
+FROM ibm-semeru-runtimes:open-11.0.18_10-jre
 ENV HOME=/home/app
 ENV export $(cat .env | xargs)
 WORKDIR $HOME
 COPY --from=build $HOME/target/*.jar app.jar
 
 EXPOSE 8080
-ENTRYPOINT ["java","-Xmx250m","-jar","app.jar"]
+ENTRYPOINT ["java","-Xmx250m","-Xshareclasses","-XX:+CMSClassUnloadingEnabled","-XX:+UseG1GC","-XX:+ExplicitGCInvokesConcurrent","-jar","app.jar"]
