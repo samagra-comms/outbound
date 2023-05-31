@@ -50,7 +50,7 @@ public class OutboundKafkaController {
     @Value("${spring.mail.recipient}")
     private String recipient;
 
-    private long notificationCount, otherCount;
+    private long notificationCount, otherCount, consumeCount;
 
     @EventListener(ApplicationStartedEvent.class)
     public void onMessage() {
@@ -59,19 +59,22 @@ public class OutboundKafkaController {
                 .doOnNext(new Consumer<ReceiverRecord<String, String>>() {
                     @Override
                     public void accept(ReceiverRecord<String, String> msg) {
-                        log.info("kafka message receieved!");
                         final long startTime = System.nanoTime();
                         logTimeTaken(startTime, 0, "process-start: %d ms");
                         XMessage currentXmsg = null;
                         try {
                             currentXmsg = XMessageParser.parse(new ByteArrayInputStream(msg.value().getBytes()));
+                            if (currentXmsg != null && currentXmsg.getProviderURI() != null && currentXmsg.getProvider().equalsIgnoreCase("firebase")) {
+                                consumeCount++;
+                                log.info("OutboundKafkaController:Notification topic consume from kafka: " + consumeCount);
+                            }
                             sendOutboundMessage(currentXmsg, startTime);
                         } catch (Exception e) {
                             HashMap<String, String> attachments = new HashMap<>();
                             attachments.put("Exception", ExceptionUtils.getStackTrace(e));
                             attachments.put("XMessage", currentXmsg.toString());
                             sentEmail(currentXmsg, "Error in Outbound", "PFA", recipient, null, attachments);
-                            log.error("An Error Occored : " + e.getMessage());
+                            log.error("OutboundKafkaController:Exception: " + e.getMessage());
                         }
                     }
                 })
@@ -81,7 +84,7 @@ public class OutboundKafkaController {
                         HashMap<String, String> attachments = new HashMap<>();
                         attachments.put("Exception", ExceptionUtils.getStackTrace(e));
                         sentEmail(null, "Error in Outbound", "PFA", recipient, null, attachments);
-                        log.error("KafkaFlux exception", e.getMessage());
+                        log.error("OutboundKafkaController:Exception: KafkaFlux exception: " + e.getMessage());
                     }
                 })
                 .subscribe();
@@ -93,7 +96,7 @@ public class OutboundKafkaController {
      * @param currentXmsg
      * @throws Exception
      */
-    public void sendOutboundMessage(XMessage currentXmsg, long startTime) throws Exception {
+    public void sendOutboundMessage(XMessage currentXmsg, long startTime)throws Exception {
         String channel = currentXmsg.getChannelURI();
         String provider = currentXmsg.getProviderURI();
         IProvider iprovider = factoryProvider.getProvider(provider, channel);
@@ -113,7 +116,8 @@ public class OutboundKafkaController {
                         if (xMessage.getApp() != null) {
                             try {
                                 log.info("Outbound convertXMessageToDAO : " + xMessage.toString());
-                                XMessageDAO dao = XMessageDAOUtils.convertXMessageToDAO(xMessage);
+                                XMessageDAO dao = null;
+                                dao = XMessageDAOUtils.convertXMessageToDAO(xMessage);
                                 redisCacheService.setXMessageDaoCache(xMessage.getTo().getUserID(), dao);
                                 xMessageRepo
                                         .insert(dao)
@@ -121,19 +125,19 @@ public class OutboundKafkaController {
                                             @Override
                                             public void accept(Throwable e) {
                                                 redisCacheService.deleteXMessageDaoCache(xMessage.getTo().getUserID());
-                                                log.error("Exception in xMsg Dao Save:" + e.getMessage());
+                                                log.error("OutboundKafkaController:Exception: " + e.getMessage());
                                             }
                                         })
                                         .subscribe(new Consumer<XMessageDAO>() {
                                             @Override
                                             public void accept(XMessageDAO xMessageDAO) {
                                                 log.info("XMessage Object saved is with sent user ID >> " + xMessageDAO.getUserId());
-                                                if(provider.toLowerCase().equals("firebase") && channel.toLowerCase().equals("web")){
+                                                if (provider.toLowerCase().equals("firebase") && channel.toLowerCase().equals("web")) {
                                                     notificationCount++;
-                                                    logTimeTaken(startTime, 0, "Notification Insert Record in Cass : " + notificationCount +" ::: process-end: %d ms");
+                                                    logTimeTaken(startTime, 0, "OutboundKafkaController:Notification Insert Record in Cass : " + notificationCount + " ::: process-end: %d ms");
                                                 } else {
                                                     otherCount++;
-                                                    logTimeTaken(startTime, 0, "Other Insert Record in Cass : " + otherCount +" ::: process-end: %d ms");
+                                                    logTimeTaken(startTime, 0, "Other Insert Record in Cass : " + otherCount + " ::: process-end: %d ms");
                                                 }
                                             }
                                         });
@@ -142,17 +146,16 @@ public class OutboundKafkaController {
                                 attachments.put("Exception", ExceptionUtils.getStackTrace(e));
                                 attachments.put("XMessage", currentXmsg.toString());
                                 sentEmail(xMessage, "Error in Outbound", "PFA", recipient, null, attachments);
-                                log.error("Exception in convertXMessageToDAO:" + e.getMessage());
+                                log.error("OutboundKafkaController:Exception: Exception in convertXMessageToDAO: " + e.getMessage());
                                 try {
-                                    log.error("The current XMessage was : " + xMessage.toString());
+                                    log.error("The current XMessage was : " + xMessage);
                                 } catch (Exception ge) {
                                     log.error("Unable to parse the current XMessage : " + ge.getMessage() + " Xmessage : " + ge.getMessage());
                                 }
                             }
                         } else {
-                            log.info("XMessage -> app is empty");
+                            log.info("OutboundKafkaController:XMessage -> app is empty");
                         }
-
                     }
                 });
     }
@@ -178,7 +181,7 @@ public class OutboundKafkaController {
     private void logTimeTaken(long startTime, int checkpointID, String formatedMsg) {
         long endTime = System.nanoTime();
         long duration = (endTime - startTime) / 1000000;
-        if(formatedMsg == null) {
+        if (formatedMsg == null) {
             log.info(String.format("CP-%d: %d ms", checkpointID, duration));
         } else {
             log.info(String.format(formatedMsg, duration));
