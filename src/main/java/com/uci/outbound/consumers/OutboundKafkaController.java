@@ -91,7 +91,7 @@ public class OutboundKafkaController {
         HashMap<String, String> attachments = new HashMap<>();
         attachments.put("Exception", ExceptionUtils.getStackTrace(e));
         sentEmail(null, "Error in Outbound", "PFA", recipient, null, attachments);
-        log.error("KafkaFlux exception", e.getMessage());
+        log.error("OutboundKafkaController:Exception: "+ e.getMessage());
     }
 
     public void logMessage(ReceiverRecord<String, String> msg) {
@@ -111,7 +111,7 @@ public class OutboundKafkaController {
                             attachments.put("Exception", ExceptionUtils.getStackTrace(e));
                             attachments.put("XMessage", currentXmsg.toString());
                             sentEmail(currentXmsg, "Error in Outbound", "PFA", recipient, null, attachments);
-                            log.error("Exception in processOutBoundMessageF:" + e.getMessage());
+                            log.error("OutboundKafkaController:Exception: Exception in processOutBoundMessageF:" + e.getMessage());
                             return Mono.error(e);
                         });
             } catch (Exception e) {
@@ -119,7 +119,7 @@ public class OutboundKafkaController {
 //                attachments.put("Exception", ExceptionUtils.getStackTrace(e));
 //                attachments.put("XMessage", msg.toString());
 //                sentEmail(msg, "Error in Outbound", "PFA", recipient, null, attachments);
-                log.error("An Error Occured : " + e.getMessage());
+                log.error("OutboundKafkaController:Exception: " + e.getMessage());
                 return Mono.error(e);
             }
         });
@@ -129,7 +129,7 @@ public class OutboundKafkaController {
         log.info("Buffer data : " + xMessageList.size() + " [0] : " + xMessageList.get(0));
         return Flux.fromIterable(xMessageList)
                 .doOnNext(this::saveXMessage)
-                .doOnError(msg -> log.error("Exception "));
+                .doOnError(msg -> log.error("OutboundKafkaController:Exception: "+msg));
 //        return saveXMessages(xMessageList)
 //                .onErrorResume(e -> {
 //                    HashMap<String, String> attachments = new HashMap<>();
@@ -161,7 +161,7 @@ public class OutboundKafkaController {
                             public void accept(XMessageDAO xMessageDAO) {
                                 log.info("XMessage Object saved is with sent user ID >> " + xMessageDAO.getUserId());
                                 notificationCount++;
-                                log.info("OutboundKafkaController: Inserted Record in Cass : " + notificationCount);
+                                log.info("OutboundKafkaController:Notification Insert Record in Cass : " + notificationCount);
 //                                if (provider.toLowerCase().equals("firebase") && channel.toLowerCase().equals("web")) {
 
 //                                logTimeTaken(startTime, 0, "OutboundKafkaController:Notification Insert Record in Cass : " + notificationCount + " ::: process-end: %d ms");
