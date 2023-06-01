@@ -115,32 +115,35 @@ public class OutboundKafkaController {
                     public void accept(XMessage xMessage) {
                         if (xMessage.getApp() != null) {
                             try {
-                                log.info("Outbound convertXMessageToDAO : " + xMessage.toString());
-                                XMessageDAO dao = null;
-                                dao = XMessageDAOUtils.convertXMessageToDAO(xMessage);
-                                redisCacheService.setXMessageDaoCache(xMessage.getTo().getUserID(), dao);
-                                xMessageRepo
-                                        .insert(dao)
-                                        .doOnError(new Consumer<Throwable>() {
-                                            @Override
-                                            public void accept(Throwable e) {
-                                                redisCacheService.deleteXMessageDaoCache(xMessage.getTo().getUserID());
-                                                log.error("OutboundKafkaController:Exception: " + e.getMessage());
-                                            }
-                                        })
-                                        .subscribe(new Consumer<XMessageDAO>() {
-                                            @Override
-                                            public void accept(XMessageDAO xMessageDAO) {
-                                                log.info("XMessage Object saved is with sent user ID >> " + xMessageDAO.getUserId());
-                                                if (provider.toLowerCase().equals("firebase") && channel.toLowerCase().equals("web")) {
-                                                    notificationCount++;
-                                                    logTimeTaken(startTime, 0, "OutboundKafkaController:Notification Insert Record in Cass : " + notificationCount + " ::: process-end: %d ms");
-                                                } else {
-                                                    otherCount++;
-                                                    logTimeTaken(startTime, 0, "Other Insert Record in Cass : " + otherCount + " ::: process-end: %d ms");
-                                                }
-                                            }
-                                        });
+                                notificationCount++;
+                                log.info("OutboundKafkaController:Notification Insert Record in Cass : " + notificationCount);
+//                                logTimeTaken(startTime, 0, "OutboundKafkaController:Notification Insert Record in Cass : " + notificationCount + " ::: process-end: %d ms");
+//                                log.info("Outbound convertXMessageToDAO : " + xMessage.toString());
+//                                XMessageDAO dao = null;
+//                                dao = XMessageDAOUtils.convertXMessageToDAO(xMessage);
+//                                redisCacheService.setXMessageDaoCache(xMessage.getTo().getUserID(), dao);
+//                                xMessageRepo
+//                                        .insert(dao)
+//                                        .doOnError(new Consumer<Throwable>() {
+//                                            @Override
+//                                            public void accept(Throwable e) {
+//                                                redisCacheService.deleteXMessageDaoCache(xMessage.getTo().getUserID());
+//                                                log.error("OutboundKafkaController:Exception: " + e.getMessage());
+//                                            }
+//                                        })
+//                                        .subscribe(new Consumer<XMessageDAO>() {
+//                                            @Override
+//                                            public void accept(XMessageDAO xMessageDAO) {
+//                                                log.info("XMessage Object saved is with sent user ID >> " + xMessageDAO.getUserId());
+//                                                if (provider.toLowerCase().equals("firebase") && channel.toLowerCase().equals("web")) {
+//                                                    notificationCount++;
+//                                                    logTimeTaken(startTime, 0, "OutboundKafkaController:Notification Insert Record in Cass : " + notificationCount + " ::: process-end: %d ms");
+//                                                } else {
+//                                                    otherCount++;
+//                                                    logTimeTaken(startTime, 0, "Other Insert Record in Cass : " + otherCount + " ::: process-end: %d ms");
+//                                                }
+//                                            }
+//                                        });
                             } catch (Exception e) {
                                 HashMap<String, String> attachments = new HashMap<>();
                                 attachments.put("Exception", ExceptionUtils.getStackTrace(e));
