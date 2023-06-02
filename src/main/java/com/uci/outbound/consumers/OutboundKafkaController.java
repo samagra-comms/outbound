@@ -25,6 +25,7 @@ import reactor.kafka.receiver.ReceiverRecord;
 
 import java.io.ByteArrayInputStream;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.function.Consumer;
@@ -76,15 +77,18 @@ public class OutboundKafkaController {
 
     @EventListener(ApplicationStartedEvent.class)
     public void onMessage() {
-
-        reactiveKafkaReceiver
-                .doOnNext(this::logMessage)
-                .flatMap(this::sendOutboundMessage)
-                .onBackpressureBuffer()
-                .bufferTimeout(1000, Duration.ofSeconds(5))
-                .flatMap(this::persistToCassandra)
-                .doOnError(this::handleKafkaFluxError)
-                .subscribe();
+        try {
+            reactiveKafkaReceiver
+                    .doOnNext(this::logMessage)
+                    .flatMap(this::sendOutboundMessage)
+                    .onBackpressureBuffer()
+                    .bufferTimeout(1000, Duration.ofSeconds(5))
+                    .flatMap(this::persistToCassandra)
+                    .doOnError(this::handleKafkaFluxError)
+                    .subscribe();
+        } catch (Exception ex) {
+            log.error("OutboundKafkaController:Exception: Exception: " + ex.getMessage());
+        }
     }
 
     public void handleKafkaFluxError(Throwable e) {
@@ -112,15 +116,15 @@ public class OutboundKafkaController {
                             attachments.put("XMessage", currentXmsg.toString());
                             sentEmail(currentXmsg, "Error in Outbound", "PFA", recipient, null, attachments);
                             log.error("OutboundKafkaController:Exception: Exception in processOutBoundMessageF:" + e.getMessage());
-                            return Mono.error(e);
+                            return Mono.just(new XMessage());
                         });
             } catch (Exception e) {
-//                HashMap<String, String> attachments = new HashMap<>();
-//                attachments.put("Exception", ExceptionUtils.getStackTrace(e));
-//                attachments.put("XMessage", msg.toString());
-//                sentEmail(msg, "Error in Outbound", "PFA", recipient, null, attachments);
+                HashMap<String, String> attachments = new HashMap<>();
+                attachments.put("Exception", ExceptionUtils.getStackTrace(e));
+                attachments.put("XMessage", msg.toString());
+                sentEmail(null, "Error in Outbound", "PFA", recipient, null, attachments);
                 log.error("OutboundKafkaController:Exception: " + e.getMessage());
-                return Mono.error(e);
+                return Mono.just(new XMessage());
             }
         });
     }
@@ -130,14 +134,6 @@ public class OutboundKafkaController {
         return Flux.fromIterable(xMessageList)
                 .doOnNext(this::saveXMessage)
                 .doOnError(msg -> log.error("OutboundKafkaController:Exception: " + msg));
-//        return saveXMessages(xMessageList)
-//                .onErrorResume(e -> {
-//                    HashMap<String, String> attachments = new HashMap<>();
-//                    attachments.put("Exception", ExceptionUtils.getStackTrace(e));
-//                    sentEmail(null, "Error in persistToCassandra", "PFA", recipient, null, attachments);
-//                    log.error("An Error Occurred in persistToCassandra: " + e.getMessage());
-//                    return Mono.error(e);
-//                });
     }
 
     public void saveXMessage(XMessage xMessage) {
@@ -176,10 +172,10 @@ public class OutboundKafkaController {
                             }
                         });
             } catch (Exception e) {
-//                HashMap<String, String> attachments = new HashMap<>();
-//                attachments.put("Exception", ExceptionUtils.getStackTrace(e));
-//                attachments.put("XMessage", currentXmsg.toString());
-//                sentEmail(xMessage, "Error in Outbound", "PFA", recipient, null, attachments);
+                HashMap<String, String> attachments = new HashMap<>();
+                attachments.put("Exception", ExceptionUtils.getStackTrace(e));
+                attachments.put("XMessage", xMessage.toString());
+                sentEmail(xMessage, "Error in Outbound", "PFA", recipient, null, attachments);
                 log.error("OutboundKafkaController:Exception: Exception in convertXMessageToDAO: " + e.getMessage());
             }
         } else {
