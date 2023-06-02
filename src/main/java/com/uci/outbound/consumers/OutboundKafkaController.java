@@ -91,7 +91,7 @@ public class OutboundKafkaController {
         HashMap<String, String> attachments = new HashMap<>();
         attachments.put("Exception", ExceptionUtils.getStackTrace(e));
         sentEmail(null, "Error in Outbound", "PFA", recipient, null, attachments);
-        log.error("OutboundKafkaController:Exception: "+ e.getMessage());
+        log.error("OutboundKafkaController:Exception: " + e.getMessage());
     }
 
     public void logMessage(ReceiverRecord<String, String> msg) {
@@ -129,7 +129,7 @@ public class OutboundKafkaController {
         log.info("Buffer data : " + xMessageList.size() + " [0] : " + xMessageList.get(0));
         return Flux.fromIterable(xMessageList)
                 .doOnNext(this::saveXMessage)
-                .doOnError(msg -> log.error("OutboundKafkaController:Exception: "+msg));
+                .doOnError(msg -> log.error("OutboundKafkaController:Exception: " + msg));
 //        return saveXMessages(xMessageList)
 //                .onErrorResume(e -> {
 //                    HashMap<String, String> attachments = new HashMap<>();
@@ -160,15 +160,19 @@ public class OutboundKafkaController {
                             @Override
                             public void accept(XMessageDAO xMessageDAO) {
                                 log.info("XMessage Object saved is with sent user ID >> " + xMessageDAO.getUserId());
-                                notificationCount++;
-                                log.info("OutboundKafkaController:Notification Insert Record in Cass : " + notificationCount);
-//                                if (provider.toLowerCase().equals("firebase") && channel.toLowerCase().equals("web")) {
 
-//                                logTimeTaken(startTime, 0, "OutboundKafkaController:Notification Insert Record in Cass : " + notificationCount + " ::: process-end: %d ms");
-//                                } else {
-//                                    otherCount++;
+                                String channel = xMessage.getChannelURI();
+                                String provider = xMessage.getProviderURI();
+
+                                if (provider.toLowerCase().equals("firebase") && channel.toLowerCase().equals("web")) {
+                                    notificationCount++;
+                                    log.info("OutboundKafkaController:Notification Insert Record in Cass : " + notificationCount);
+//                                    logTimeTaken(startTime, 0, "OutboundKafkaController:Notification Insert Record in Cass : " + notificationCount + " ::: process-end: %d ms");
+                                } else {
+                                    otherCount++;
 //                                    logTimeTaken(startTime, 0, "Other Insert Record in Cass : " + otherCount + " ::: process-end: %d ms");
-//                                }
+                                    log.info("Other Insert Record in Cass : " + otherCount);
+                                }
                             }
                         });
             } catch (Exception e) {
