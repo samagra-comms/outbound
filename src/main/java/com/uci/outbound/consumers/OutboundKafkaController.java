@@ -81,7 +81,7 @@ public class OutboundKafkaController {
                 .doOnNext(this::logMessage)
                 .flatMap(this::sendOutboundMessage)
                 .onBackpressureBuffer()
-                .bufferTimeout(1000, Duration.ofSeconds(10))
+                .bufferTimeout(1000, Duration.ofSeconds(5))
                 .flatMap(this::persistToCassandra)
                 .doOnError(this::handleKafkaFluxError)
                 .subscribe();
