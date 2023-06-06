@@ -22,6 +22,7 @@ public class ReactiveKafkaConfiguration {
     private String BOOTSTRAP_SERVERS;
 
     private String GROUP_ID = "outbound";
+    private String GROUP_ID_NOTIFICATION = "notification-outbound";
 
     @Bean
     Map<String, Object> kafkaConsumerConfiguration() {
@@ -45,5 +46,29 @@ public class ReactiveKafkaConfiguration {
     @Bean
     Flux<ReceiverRecord<String, String>> reactiveKafkaReceiver(ReceiverOptions<String, String> kafkaReceiverOptions) {
         return KafkaReceiver.create(kafkaReceiverOptions).receive();
+    }
+
+    @Bean
+    Map<String, Object> kafkaConsumerConfigurationNotification() {
+        Map<String, Object> configuration = new HashMap<>();
+        configuration.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, BOOTSTRAP_SERVERS);
+        configuration.put(ConsumerConfig.GROUP_ID_CONFIG, GROUP_ID_NOTIFICATION);
+        configuration.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, org.springframework.kafka.support.serializer.JsonSerializer.class);
+        configuration.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, org.springframework.kafka.support.serializer.JsonSerializer.class);
+        configuration.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "latest");
+        return configuration;
+    }
+
+    @Bean
+    ReceiverOptions<String, String> kafkaReceiverOptionsNotification(@Value("${notificationOutbound}") String[] inTopicName) {
+        ReceiverOptions<String, String> options = ReceiverOptions.create(kafkaConsumerConfigurationNotification());
+        return options.subscription(Arrays.asList(inTopicName))
+                .withKeyDeserializer(new JsonDeserializer<>())
+                .withValueDeserializer(new JsonDeserializer(String.class));
+    }
+
+    @Bean
+    Flux<ReceiverRecord<String, String>> reactiveKafkaReceiverNotification(ReceiverOptions<String, String> kafkaReceiverOptionsNotification) {
+        return KafkaReceiver.create(kafkaReceiverOptionsNotification).receive();
     }
 }
