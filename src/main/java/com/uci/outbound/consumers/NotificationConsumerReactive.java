@@ -65,6 +65,7 @@ public class NotificationConsumerReactive {
     }
 
     private void logMessage(ReceiverRecord<String, String> msg) {
+        consumeCount++;
         log.info("NotificationConsumerReactive:Notification topic consume from kafka: " + consumeCount);
     }
 
