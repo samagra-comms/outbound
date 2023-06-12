@@ -6,7 +6,6 @@ import com.uci.adapter.provider.factory.ProviderFactory;
 import com.uci.dao.models.XMessageDAO;
 import com.uci.dao.repository.XMessageRepository;
 import com.uci.dao.utils.XMessageDAOUtils;
-import com.uci.outbound.consumers.OutboundKafkaController;
 import com.uci.outbound.model.MessageRequest;
 import com.uci.utils.BotService;
 import com.uci.utils.model.HttpApiResponse;
@@ -30,9 +29,6 @@ import java.util.function.Function;
 public class MessageController {
     @Autowired
     public BotService botService;
-
-    @Autowired
-    public OutboundKafkaController outboundService;
 
     @Autowired
     private ProviderFactory factoryProvider;
