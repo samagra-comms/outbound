@@ -20,6 +20,7 @@ import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Schedulers;
 import reactor.kafka.receiver.ReceiverRecord;
 
 import java.io.ByteArrayInputStream;
@@ -56,12 +57,13 @@ public class NotificationConsumerReactive {
         try {
             reactiveKafkaReceiverNotification
                     .doOnNext(this::logMessage)
-                    .bufferTimeout(500, Duration.ofSeconds(10))
+                    .bufferTimeout(1000, Duration.ofSeconds(10))
                     .flatMap(this::sendOutboundMessage)
                     .onBackpressureBuffer()
                     .bufferTimeout(1000, Duration.ofSeconds(10))
                     .flatMap(this::persistToCassandra)
                     .doOnError(this::handleKafkaFluxError)
+                    .subscribeOn(Schedulers.parallel())
                     .subscribe();
         } catch (Exception ex) {
             log.error("NotificationConsumerReactive:Exception: Exception: " + ex.getMessage());
