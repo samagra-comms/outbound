@@ -56,14 +56,14 @@ public class NotificationConsumerReactive {
     public void onMessage() {
         try {
             reactiveKafkaReceiverNotification
-                    .doOnNext(this::logMessage)
+//                    .doOnNext(this::logMessage)
                     .bufferTimeout(1000, Duration.ofSeconds(10))
                     .flatMap(this::sendOutboundMessage)
                     .onBackpressureBuffer()
                     .bufferTimeout(1000, Duration.ofSeconds(10))
                     .flatMap(this::persistToCassandra)
                     .doOnError(this::handleKafkaFluxError)
-                    .subscribeOn(Schedulers.parallel())
+//                    .subscribeOn(Schedulers.parallel())
                     .subscribe();
         } catch (Exception ex) {
             log.error("NotificationConsumerReactive:Exception: Exception: " + ex.getMessage());
@@ -125,7 +125,7 @@ public class NotificationConsumerReactive {
     public Mono<XMessage> saveXMessage(XMessage xMessage) {
         if (xMessage.getApp() != null) {
             try {
-                log.info("NotificationConsumerReactive:saveXMessage::convertXMessageToDAO : " + xMessage.toString());
+//                log.info("NotificationConsumerReactive:saveXMessage::convertXMessageToDAO : " + xMessage.toString());
                 XMessageDAO dao = null;
                 dao = XMessageDAOUtils.convertXMessageToDAO(xMessage);
                 redisCacheService.setXMessageDaoCache(xMessage.getTo().getUserID(), dao);
@@ -141,7 +141,7 @@ public class NotificationConsumerReactive {
                         .subscribe(new Consumer<XMessageDAO>() {
                             @Override
                             public void accept(XMessageDAO xMessageDAO) {
-                                log.info("NotificationConsumerReactive: XMessage Object saved is with sent user ID >> " + xMessageDAO.getUserId());
+//                                log.info("NotificationConsumerReactive: XMessage Object saved is with sent user ID >> " + xMessageDAO.getUserId());
 
                                 String channel = xMessage.getChannelURI();
                                 String provider = xMessage.getProviderURI();
