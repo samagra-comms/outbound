@@ -20,7 +20,6 @@ import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
-import reactor.core.scheduler.Schedulers;
 import reactor.kafka.receiver.ReceiverRecord;
 
 import java.io.ByteArrayInputStream;
@@ -56,14 +55,13 @@ public class NotificationConsumerReactive {
     public void onMessage() {
         try {
             reactiveKafkaReceiverNotification
-//                    .doOnNext(this::logMessage)
-                    .bufferTimeout(1000, Duration.ofSeconds(10))
+                    .doOnNext(this::logMessage)
+                    .bufferTimeout(500, Duration.ofSeconds(10))
                     .flatMap(this::sendOutboundMessage)
                     .onBackpressureBuffer()
                     .bufferTimeout(1000, Duration.ofSeconds(10))
                     .flatMap(this::persistToCassandra)
                     .doOnError(this::handleKafkaFluxError)
-//                    .subscribeOn(Schedulers.parallel())
                     .subscribe();
         } catch (Exception ex) {
             log.error("NotificationConsumerReactive:Exception: Exception: " + ex.getMessage());
@@ -75,50 +73,48 @@ public class NotificationConsumerReactive {
         log.info("NotificationConsumerReactive:Notification topic consume from kafka: " + consumeCount);
     }
 
-    public Mono<List<XMessage>> sendOutboundMessage(List<ReceiverRecord<String, String>> msgs) {
-        List<XMessage> xMessageList = new ArrayList<>();
-        for (ReceiverRecord<String, String> msg : msgs) {
-            try {
-                XMessage currentXmsg = XMessageParser.parse(new ByteArrayInputStream(msg.value().getBytes()));
-                xMessageList.add(currentXmsg);
-            } catch (Exception ex) {
-                log.error("NotificationConsumerReactive:Exception: " + ex.getMessage());
-            }
-        }
-        return Mono.defer(() -> {
-            try {
-                String channel = "web";
-                String provider = "firebase";
-                IProvider iprovider = factoryProvider.getProvider(provider, channel);
-                return iprovider.processOutBoundMessageF(Mono.just(xMessageList))
-                        .onErrorResume(e -> {
-                            HashMap<String, String> attachments = new HashMap<>();
-                            attachments.put("Exception", ExceptionUtils.getStackTrace(e));
-//                            attachments.put("XMessage", currentXmsg.toString());
-                            sentEmail(null, "PFA", null, attachments);
-                            log.error("NotificationConsumerReactive:Exception: Exception in processOutBoundMessageF:" + e.getMessage());
-                            return Mono.just(new ArrayList<>());
-                        });
-            } catch (Exception e) {
-                HashMap<String, String> attachments = new HashMap<>();
-                attachments.put("Exception", ExceptionUtils.getStackTrace(e));
-                attachments.put("XMessage", "No xmessage");
-                sentEmail(null, "PFA", null, attachments);
-                log.error("NotificationConsumerReactive:Exception: " + e.getMessage());
-                return Mono.just(new ArrayList<>());
-            }
-        });
+    public Flux<XMessage> sendOutboundMessage(List<ReceiverRecord<String, String>> msgs) {
+        return Flux.fromIterable(msgs)
+                .flatMap(record -> {
+                    try {
+                        XMessage currentXmsg = XMessageParser.parse(new ByteArrayInputStream(record.value().getBytes()));
+                        return Mono.just(currentXmsg);
+                    } catch (Exception ex) {
+                        log.error("NotificationConsumerReactive:Exception: " + ex.getMessage());
+                        return Mono.empty();
+                    }
+                })
+                .collectList()
+                .flatMapMany(xMessageList -> {
+                    String channel = "web";
+                    String provider = "firebase";
+                    try {
+                        IProvider iprovider = factoryProvider.getProvider(provider, channel);
+                        return iprovider.processOutBoundMessageF(Mono.just(xMessageList))
+                                .onErrorResume(e -> {
+                                    HashMap<String, String> attachments = new HashMap<>();
+                                    attachments.put("Exception", ExceptionUtils.getStackTrace(e));
+                                    sentEmail(null, "PFA", null, attachments);
+                                    log.error("NotificationConsumerReactive:Exception: Exception in processOutBoundMessageF:" + e.getMessage());
+                                    return Flux.fromIterable(new ArrayList<>());
+                                });
+//                        return Flux.fromIterable(new ArrayList<>());
+                    } catch (Exception e) {
+                        HashMap<String, String> attachments = new HashMap<>();
+                        attachments.put("Exception", ExceptionUtils.getStackTrace(e));
+                        attachments.put("XMessage", "No xmessage");
+                        sentEmail(null, "PFA", null, attachments);
+                        log.error("NotificationConsumerReactive:Exception: " + e.getMessage());
+                        return Flux.fromIterable(new ArrayList<>());
+//                        return Flux.fromIterable(new ArrayList<>());
+                    }
+                });
     }
 
-    public Flux<XMessage> persistToCassandra(List<List<XMessage>> xMessageList) {
+    public Flux<XMessage> persistToCassandra(List<XMessage> xMessageList) {
         return Flux.fromIterable(xMessageList)
-                .flatMap(Flux::fromIterable)
                 .flatMap(this::saveXMessage)
                 .doOnError(this::handlePersistToCassandraError);
-//        return xMessageList
-//                .flatMapMany(Flux::fromIterable)
-//                .flatMap(this::saveXMessage)
-//                .doOnError(this::handlePersistToCassandraError);
     }
 
 
@@ -135,13 +131,13 @@ public class NotificationConsumerReactive {
                             @Override
                             public void accept(Throwable e) {
                                 redisCacheService.deleteXMessageDaoCache(xMessage.getTo().getUserID());
-                                log.error("NotificationConsumerReactive:Exception: " + e.getMessage());
+                                log.error("NotificationConsumerReactive:Notification Not Inserted in Cass: Exception: " + e.getMessage());
                             }
                         })
                         .subscribe(new Consumer<XMessageDAO>() {
                             @Override
                             public void accept(XMessageDAO xMessageDAO) {
-//                                log.info("NotificationConsumerReactive: XMessage Object saved is with sent user ID >> " + xMessageDAO.getUserId());
+                                log.info("NotificationConsumerReactive: XMessage Object saved is with sent user ID >> " + xMessageDAO.getUserId());
 
                                 String channel = xMessage.getChannelURI();
                                 String provider = xMessage.getProviderURI();
