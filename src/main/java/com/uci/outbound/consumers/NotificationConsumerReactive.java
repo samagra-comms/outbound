@@ -96,7 +96,7 @@ public class NotificationConsumerReactive {
                                     attachments.put("Exception", ExceptionUtils.getStackTrace(e));
                                     sentEmail(null, "PFA", null, attachments);
                                     log.error("NotificationConsumerReactive:Exception: Exception in processOutBoundMessageF:" + e.getMessage());
-                                    return Flux.fromIterable(new ArrayList<>());
+                                    return Flux.empty();
                                 });
 //                        return Flux.fromIterable(new ArrayList<>());
                     } catch (Exception e) {
@@ -105,7 +105,7 @@ public class NotificationConsumerReactive {
                         attachments.put("XMessage", "No xmessage");
                         sentEmail(null, "PFA", null, attachments);
                         log.error("NotificationConsumerReactive:Exception: " + e.getMessage());
-                        return Flux.fromIterable(new ArrayList<>());
+                        return Flux.empty();
 //                        return Flux.fromIterable(new ArrayList<>());
                     }
                 });
