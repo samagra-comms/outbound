@@ -24,6 +24,7 @@ import reactor.kafka.receiver.ReceiverRecord;
 
 import java.io.ByteArrayInputStream;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.function.Consumer;
@@ -47,12 +48,15 @@ public class NotificationConsumerReactive {
 
     private long notificationCount, otherCount, consumeCount;
 
+    private final String emailSubject = "Error in Notification Consumer";
+
 
     @EventListener(ApplicationStartedEvent.class)
     public void onMessage() {
         try {
             reactiveKafkaReceiverNotification
                     .doOnNext(this::logMessage)
+                    .bufferTimeout(500, Duration.ofSeconds(5))
                     .flatMap(this::sendOutboundMessage)
                     .onBackpressureBuffer()
                     .bufferTimeout(1000, Duration.ofSeconds(10))
@@ -69,45 +73,55 @@ public class NotificationConsumerReactive {
         log.info("NotificationConsumerReactive:Notification topic consume from kafka: " + consumeCount);
     }
 
-    public Mono<XMessage> sendOutboundMessage(ReceiverRecord<String, String> msg) {
-        return Mono.defer(() -> {
-            try {
-                XMessage currentXmsg = XMessageParser.parse(new ByteArrayInputStream(msg.value().getBytes()));
-                String channel = currentXmsg.getChannelURI();
-                String provider = currentXmsg.getProviderURI();
-                IProvider iprovider = factoryProvider.getProvider(provider, channel);
-                return iprovider.processOutBoundMessageF(currentXmsg)
-                        .onErrorResume(e -> {
-                            HashMap<String, String> attachments = new HashMap<>();
-                            attachments.put("Exception", ExceptionUtils.getStackTrace(e));
-                            attachments.put("XMessage", currentXmsg.toString());
-                            sentEmail(currentXmsg, "Error in Outbound", "PFA", null, attachments);
-                            log.error("NotificationConsumerReactive:Exception: Exception in processOutBoundMessageF:" + e.getMessage());
-                            return Mono.just(new XMessage());
-                        });
-            } catch (Exception e) {
-                HashMap<String, String> attachments = new HashMap<>();
-                attachments.put("Exception", ExceptionUtils.getStackTrace(e));
-                attachments.put("XMessage", msg.toString());
-                sentEmail(null, "Error in Outbound", "PFA", null, attachments);
-                log.error("NotificationConsumerReactive:Exception: " + e.getMessage());
-                return Mono.just(new XMessage());
-            }
-        });
+    public Flux<XMessage> sendOutboundMessage(List<ReceiverRecord<String, String>> msgs) {
+        return Flux.fromIterable(msgs)
+                .flatMap(record -> {
+                    try {
+                        XMessage currentXmsg = XMessageParser.parse(new ByteArrayInputStream(record.value().getBytes()));
+                        return Mono.just(currentXmsg);
+                    } catch (Exception ex) {
+                        log.error("NotificationConsumerReactive:Exception: " + ex.getMessage());
+                        return Mono.empty();
+                    }
+                })
+                .collectList()
+                .flatMapMany(xMessageList -> {
+                    String channel = "web";
+                    String provider = "firebase";
+                    try {
+                        IProvider iprovider = factoryProvider.getProvider(provider, channel);
+                        return iprovider.processOutBoundMessageF(Mono.just(xMessageList))
+                                .onErrorResume(e -> {
+                                    HashMap<String, String> attachments = new HashMap<>();
+                                    attachments.put("Exception", ExceptionUtils.getStackTrace(e));
+                                    sentEmail(null, "PFA", null, attachments);
+                                    log.error("NotificationConsumerReactive:Exception: Exception in processOutBoundMessageF:" + e.getMessage());
+                                    return Flux.empty();
+                                });
+//                        return Flux.fromIterable(new ArrayList<>());
+                    } catch (Exception e) {
+                        HashMap<String, String> attachments = new HashMap<>();
+                        attachments.put("Exception", ExceptionUtils.getStackTrace(e));
+                        attachments.put("XMessage", "No xmessage");
+                        sentEmail(null, "PFA", null, attachments);
+                        log.error("NotificationConsumerReactive:Exception: " + e.getMessage());
+                        return Flux.empty();
+//                        return Flux.fromIterable(new ArrayList<>());
+                    }
+                });
     }
 
     public Flux<XMessage> persistToCassandra(List<XMessage> xMessageList) {
-        log.info("Buffer data : " + xMessageList.size() + " [0] : " + xMessageList.get(0));
         return Flux.fromIterable(xMessageList)
-                .doOnNext(this::saveXMessage)
-                .doOnError(msg -> log.error("NotificationConsumerReactive:Exception: " + msg));
+                .flatMap(this::saveXMessage)
+                .doOnError(this::handlePersistToCassandraError);
     }
 
 
-    public void saveXMessage(XMessage xMessage) {
+    public Mono<XMessage> saveXMessage(XMessage xMessage) {
         if (xMessage.getApp() != null) {
             try {
-                log.info("NotificationConsumerReactive:saveXMessage::convertXMessageToDAO : " + xMessage.toString());
+//                log.info("NotificationConsumerReactive:saveXMessage::convertXMessageToDAO : " + xMessage.toString());
                 XMessageDAO dao = null;
                 dao = XMessageDAOUtils.convertXMessageToDAO(xMessage);
                 redisCacheService.setXMessageDaoCache(xMessage.getTo().getUserID(), dao);
@@ -117,7 +131,7 @@ public class NotificationConsumerReactive {
                             @Override
                             public void accept(Throwable e) {
                                 redisCacheService.deleteXMessageDaoCache(xMessage.getTo().getUserID());
-                                log.error("NotificationConsumerReactive:Exception: " + e.getMessage());
+                                log.error("NotificationConsumerReactive:Notification Not Inserted in Cass: Exception: " + e.getMessage());
                             }
                         })
                         .subscribe(new Consumer<XMessageDAO>() {
@@ -143,29 +157,34 @@ public class NotificationConsumerReactive {
                 HashMap<String, String> attachments = new HashMap<>();
                 attachments.put("Exception", ExceptionUtils.getStackTrace(e));
                 attachments.put("XMessage", xMessage.toString());
-                sentEmail(xMessage, "Error in Outbound", "PFA", null, attachments);
+                sentEmail(xMessage, "PFA", null, attachments);
                 log.error("NotificationConsumerReactive:Exception: Exception in convertXMessageToDAO: " + e.getMessage());
             }
         } else {
             log.info("NotificationConsumerReactive:XMessage -> app is empty " + xMessage);
         }
+        return Mono.empty();
     }
 
     private void handleKafkaFluxError(Throwable e) {
         HashMap<String, String> attachments = new HashMap<>();
         attachments.put("Exception", ExceptionUtils.getStackTrace(e));
         try {
-            sentEmail(null, "Error in Outbound", "PFA", null, attachments);
+            sentEmail(null, "PFA", null, attachments);
         } catch (Exception ex) {
             log.error("NotificationConsumerReactive:Exception:" + ex.getMessage());
         }
         log.error("NotificationConsumerReactive:Exception: " + e.getMessage());
     }
 
-    private void sentEmail(XMessage xMessage, String subject, String body, String attachmentFileName, HashMap<String, String> attachments) {
+    public void handlePersistToCassandraError(Throwable throwable) {
+        log.error("NotificationConsumerReactive:Exception: Error in persistToCassandra: " + throwable.getMessage());
+    }
+
+    private void sentEmail(XMessage xMessage, String body, String attachmentFileName, HashMap<String, String> attachments) {
         log.info("Email Sending....");
         EmailDetails emailDetails = new EmailDetails().builder()
-                .subject(subject)
+                .subject(emailSubject)
                 .msgBody(body)
                 .recipient(recipient)
                 .attachment(xMessage == null ? "" : xMessage.toString())
