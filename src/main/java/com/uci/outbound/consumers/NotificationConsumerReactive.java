@@ -56,7 +56,7 @@ public class NotificationConsumerReactive {
         try {
             reactiveKafkaReceiverNotification
                     .doOnNext(this::logMessage)
-                    .bufferTimeout(500, Duration.ofSeconds(10))
+                    .bufferTimeout(500, Duration.ofSeconds(5))
                     .flatMap(this::sendOutboundMessage)
                     .onBackpressureBuffer()
                     .bufferTimeout(1000, Duration.ofSeconds(10))
