@@ -24,7 +24,6 @@ import reactor.kafka.receiver.ReceiverRecord;
 
 import java.io.ByteArrayInputStream;
 import java.time.Duration;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.function.Consumer;
@@ -98,7 +97,6 @@ public class NotificationConsumerReactive {
                                     log.error("NotificationConsumerReactive:Exception: Exception in processOutBoundMessageF:" + e.getMessage());
                                     return Flux.empty();
                                 });
-//                        return Flux.fromIterable(new ArrayList<>());
                     } catch (Exception e) {
                         HashMap<String, String> attachments = new HashMap<>();
                         attachments.put("Exception", ExceptionUtils.getStackTrace(e));
@@ -106,7 +104,6 @@ public class NotificationConsumerReactive {
                         sentEmail(null, "PFA", null, attachments);
                         log.error("NotificationConsumerReactive:Exception: " + e.getMessage());
                         return Flux.empty();
-//                        return Flux.fromIterable(new ArrayList<>());
                     }
                 });
     }
