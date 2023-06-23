@@ -49,16 +49,25 @@ public class NotificationConsumerReactive {
 
     private final String emailSubject = "Error in Notification Consumer";
 
+    @Value("${notification.bufferMaxSize}")
+    private int notificationBufferMaxSize;
+    @Value("${notification.bufferMaxTime}")
+    private long notificationBufferMaxTime;
+    @Value("${cassandra.bufferMaxSize}")
+    private int cassandraBufferMaxSize;
+    @Value("${cassandra.bufferMaxTime}")
+    private long cassandraBufferMaxTime;
+
 
     @EventListener(ApplicationStartedEvent.class)
     public void onMessage() {
         try {
             reactiveKafkaReceiverNotification
                     .doOnNext(this::logMessage)
-                    .bufferTimeout(500, Duration.ofSeconds(5))
+                    .bufferTimeout(notificationBufferMaxSize, Duration.ofSeconds(notificationBufferMaxTime))
                     .flatMap(this::sendOutboundMessage)
                     .onBackpressureBuffer()
-                    .bufferTimeout(1000, Duration.ofSeconds(10))
+                    .bufferTimeout(cassandraBufferMaxSize, Duration.ofSeconds(cassandraBufferMaxTime))
                     .flatMap(this::persistToCassandra)
                     .doOnError(this::handleKafkaFluxError)
                     .subscribe();
