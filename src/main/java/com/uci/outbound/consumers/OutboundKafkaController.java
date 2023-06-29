@@ -24,6 +24,7 @@ import reactor.kafka.receiver.ReceiverRecord;
 
 import java.io.ByteArrayInputStream;
 import java.util.HashMap;
+import java.util.List;
 import java.util.function.Consumer;
 
 @Component
@@ -116,11 +117,13 @@ public class OutboundKafkaController {
                         if (xMessage.getApp() != null) {
                             try {
                                 log.info("Outbound convertXMessageToDAO : " + xMessage.toString());
-                                XMessageDAO dao = null;
-                                dao = XMessageDAOUtils.convertXMessageToDAO(xMessage);
-                                redisCacheService.setXMessageDaoCache(xMessage.getTo().getUserID(), dao);
+                                XMessageDAO xMessageDAO = null;
+                                xMessageDAO = XMessageDAOUtils.convertXMessageToDAO(xMessage);
+                                redisCacheService.setXMessageDaoCache(xMessage.getTo().getUserID(), xMessageDAO);
+                                // Setting conversation history in redis for NL-APP
+                                setConversationHistoryInRedis(xMessageDAO);
                                 xMessageRepo
-                                        .insert(dao)
+                                        .insert(xMessageDAO)
                                         .doOnError(new Consumer<Throwable>() {
                                             @Override
                                             public void accept(Throwable e) {
@@ -180,6 +183,23 @@ public class OutboundKafkaController {
             log.info(String.format("CP-%d: %d ms", checkpointID, duration));
         } else {
             log.info(String.format(formatedMsg, duration));
+        }
+    }
+
+    /**
+     * Set conversation history in Redis Cache
+     * If conversation already set in cache
+     * we add conversation data while user
+     * conversation with bot
+     * @param xMessageDAO
+     */
+    private void setConversationHistoryInRedis(XMessageDAO xMessageDAO) {
+        String conversationHistoryRedisKey = xMessageDAO.getUserId() + "-" + xMessageDAO.getBotUuid();
+        log.info("Conversation-History cache key : " + conversationHistoryRedisKey);
+        if (redisCacheService.isKeyExists(conversationHistoryRedisKey)) {
+            List<XMessageDAO> xMessageDAOList = (List<XMessageDAO>) redisCacheService.getConversationHistoryFromCache(conversationHistoryRedisKey);
+            xMessageDAOList.add(xMessageDAO);
+            redisCacheService.setConversationHistoryCache(conversationHistoryRedisKey, xMessageDAOList);
         }
     }
 }
