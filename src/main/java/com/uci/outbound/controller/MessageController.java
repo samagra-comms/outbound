@@ -42,20 +42,20 @@ public class MessageController {
                 .status(HttpStatus.OK.value())
                 .path("/message/send")
                 .build();
-        if(request.getAdapterId() == null || request.getAdapterId().isEmpty()
-            || request.getTo() == null || request.getTo().getUserID() == null
+        if (request.getAdapterId() == null || request.getAdapterId().isEmpty()
+                || request.getTo() == null || request.getTo().getUserID() == null
                 || request.getTo().getUserID().isEmpty() || request.getTo().getDeviceType() == null || request.getPayload() == null
         ) {
             response.setStatus(HttpStatus.BAD_REQUEST.value());
             response.setError(HttpStatus.BAD_REQUEST.getReasonPhrase());
             response.setMessage("Adapter id, to with userID, deviceType & payload are required.");
             return Mono.just(ResponseEntity.badRequest().body(response));
-        } else if(request.getPayload().getText() == null && request.getPayload().getMedia() == null) {
+        } else if (request.getPayload().getText() == null && request.getPayload().getMedia() == null) {
             response.setStatus(HttpStatus.BAD_REQUEST.value());
             response.setError(HttpStatus.BAD_REQUEST.getReasonPhrase());
             response.setMessage("Payload should have either text or media.");
             return Mono.just(ResponseEntity.badRequest().body(response));
-        } else if(request.getPayload().getMedia() != null
+        } else if (request.getPayload().getMedia() != null
                 && (request.getPayload().getMedia().getUrl() == null || request.getPayload().getMedia().getCategory() == null)
         ) {
             response.setStatus(HttpStatus.BAD_REQUEST.value());
@@ -69,7 +69,7 @@ public class MessageController {
             XMessagePayload payload = request.payload;
 
             return botService.getAdapterByID(request.getAdapterId())
-                    .map(new Function<JsonNode, Mono<ResponseEntity<HttpApiResponse>>>(){
+                    .map(new Function<JsonNode, Mono<ResponseEntity<HttpApiResponse>>>() {
                         @Override
                         public Mono<ResponseEntity<HttpApiResponse>> apply(JsonNode adapter) {
                             XMessage xmsg = new XMessage().builder()
@@ -89,14 +89,14 @@ public class MessageController {
                                     .timestamp(Timestamp.valueOf(LocalDateTime.now()).getTime())
                                     .build();
 
-                            if(request.getTags() != null) {
+                            if (request.getTags() != null) {
                                 xmsg.setTags(request.getTags());
                             }
 
                             /**
                              * Check for media content allowed for gupshup & netcore whatsapp adapter
                              */
-                            if(request.getPayload().getMedia() != null
+                            if (request.getPayload().getMedia() != null
                                     && !adapter.path("channel").asText().equalsIgnoreCase("whatsapp")
                             ) {
                                 response.setStatus(HttpStatus.BAD_REQUEST.value());
@@ -106,9 +106,9 @@ public class MessageController {
                             }
 
                             /* Template id required check for cdac sms adapter */
-                            if(adapter.path("channel").asText().equalsIgnoreCase("sms")
-                                    &&  adapter.path("provider").asText().equalsIgnoreCase("cdac")) {
-                                if(request.getTo().getMeta() == null || request.getTo().getMeta().get("templateId") == null || request.getTo().getMeta().get("templateId").isEmpty()) {
+                            if (adapter.path("channel").asText().equalsIgnoreCase("sms")
+                                    && adapter.path("provider").asText().equalsIgnoreCase("cdac")) {
+                                if (request.getTo().getMeta() == null || request.getTo().getMeta().get("templateId") == null || request.getTo().getMeta().get("templateId").isEmpty()) {
                                     response.setStatus(HttpStatus.BAD_REQUEST.value());
                                     response.setError(HttpStatus.BAD_REQUEST.getReasonPhrase());
                                     response.setMessage("Template id in meta of to is required for firebase adapter messaging.");
@@ -125,11 +125,11 @@ public class MessageController {
                             }
 
                             /* FCM token required check for firebase adapter */
-                            if(adapter.path("channel").asText().equalsIgnoreCase("web")
-                                    &&  adapter.path("provider").asText().equalsIgnoreCase("firebase")
+                            if (adapter.path("channel").asText().equalsIgnoreCase("web")
+                                    && adapter.path("provider").asText().equalsIgnoreCase("firebase")
 //                                    && (request.getTo().getMeta() == null || request.getTo().getMeta().get("fcmToken") == null || request.getTo().getMeta().get("fcmToken").isEmpty())
-                                    && (request.getPayload().getData() != null && request.getPayload().getData().size() > 0)
-                                    ) {
+                                    && (request.getPayload().getData() == null && request.getPayload().getData().isEmpty())
+                            ) {
                                 response.setStatus(HttpStatus.BAD_REQUEST.value());
                                 response.setError(HttpStatus.BAD_REQUEST.getReasonPhrase());
                                 response.setMessage("FCM token in data of payload is required for firebase adapter messaging.");
@@ -140,54 +140,100 @@ public class MessageController {
                                 String channel = xmsg.getChannelURI();
                                 String provider = xmsg.getProviderURI();
                                 IProvider iprovider = factoryProvider.getProvider(provider, channel);
-                                return iprovider.processOutBoundMessageF(xmsg)
-                                        .doOnError(new Consumer<Throwable>() {
-                                            @Override
-                                            public void accept(Throwable e) {
-                                                log.error("Exception in processOutBoundMessageF:"+e.getMessage());
-                                                response.setStatus(HttpStatus.INTERNAL_SERVER_ERROR.value());
-                                                response.setError(HttpStatus.INTERNAL_SERVER_ERROR.getReasonPhrase());
-                                                response.setMessage("Exception while sending message: "+e.getMessage());
-                                            }
-                                        }).map(new Function<XMessage, Mono<ResponseEntity<HttpApiResponse>>>() {
-                                            @Override
-                                            public Mono<ResponseEntity<HttpApiResponse>> apply(XMessage xMessage) {
-                                                XMessageDAO dao = XMessageDAOUtils.convertXMessageToDAO(xMessage);
+                                if (channel.equalsIgnoreCase("web") && provider.equalsIgnoreCase("firebase")) {
+                                    return iprovider.processOutBoundMessageF(xmsg)
+                                            .doOnError(new Consumer<Throwable>() {
+                                                @Override
+                                                public void accept(Throwable e) {
+                                                    log.error("Exception in processOutBoundMessageF:" + e.getMessage());
+                                                    response.setStatus(HttpStatus.INTERNAL_SERVER_ERROR.value());
+                                                    response.setError(HttpStatus.INTERNAL_SERVER_ERROR.getReasonPhrase());
+                                                    response.setMessage("Exception while sending message: " + e.getMessage());
+                                                }
+                                            }).map(new Function<XMessage, Mono<ResponseEntity<HttpApiResponse>>>() {
+                                                @Override
+                                                public Mono<ResponseEntity<HttpApiResponse>> apply(XMessage xMessage) {
+                                                    XMessageDAO dao = XMessageDAOUtils.convertXMessageToDAO(xMessage);
 
-                                                return xMessageRepo
-                                                        .insert(dao)
-                                                        .doOnError(new Consumer<Throwable>() {
-                                                            @Override
-                                                            public void accept(Throwable e) {
-                                                                log.error("Exception in xMsg Dao Save:"+e.getMessage());
-                                                                response.setStatus(HttpStatus.INTERNAL_SERVER_ERROR.value());
-                                                                response.setError(HttpStatus.INTERNAL_SERVER_ERROR.getReasonPhrase());
-                                                                response.setMessage("Exception in saving xMessage: "+e.getMessage());
-                                                            }
-                                                        })
-                                                        .map(new Function<XMessageDAO, ResponseEntity<HttpApiResponse>>() {
-                                                            @Override
-                                                            public ResponseEntity<HttpApiResponse> apply(XMessageDAO xMessageDAO) {
-                                                                log.info("XMessage Object saved is with sent user ID >> " + xMessageDAO.getUserId());
-                                                                response.setMessage("Message sent.");
-                                                                Map<String, String> resultNode = new HashMap<>();
-                                                                resultNode.put("messageId", xMessageDAO.getMessageId());
-                                                                response.setResult(resultNode);
-                                                                return ResponseEntity.ok(response);
-                                                            }
-                                                        });
-                                            }
-                                        }).flatMap(new Function<Mono<ResponseEntity<HttpApiResponse>>, Mono<? extends ResponseEntity<HttpApiResponse>>>() {
-                                            @Override
-                                            public Mono<? extends ResponseEntity<HttpApiResponse>> apply(Mono<ResponseEntity<HttpApiResponse>> n) {
-                                                return n;
-                                            }
-                                        });
+                                                    return xMessageRepo
+                                                            .insert(dao)
+                                                            .doOnError(new Consumer<Throwable>() {
+                                                                @Override
+                                                                public void accept(Throwable e) {
+                                                                    log.error("Exception in xMsg Dao Save:" + e.getMessage());
+                                                                    response.setStatus(HttpStatus.INTERNAL_SERVER_ERROR.value());
+                                                                    response.setError(HttpStatus.INTERNAL_SERVER_ERROR.getReasonPhrase());
+                                                                    response.setMessage("Exception in saving xMessage: " + e.getMessage());
+                                                                }
+                                                            })
+                                                            .map(new Function<XMessageDAO, ResponseEntity<HttpApiResponse>>() {
+                                                                @Override
+                                                                public ResponseEntity<HttpApiResponse> apply(XMessageDAO xMessageDAO) {
+                                                                    log.info("XMessage Object saved is with sent user ID >> " + xMessageDAO.getUserId());
+                                                                    response.setMessage("Message sent.");
+                                                                    Map<String, String> resultNode = new HashMap<>();
+                                                                    resultNode.put("messageId", xMessageDAO.getRespMsgId());
+                                                                    response.setResult(resultNode);
+                                                                    return ResponseEntity.ok(response);
+                                                                }
+                                                            });
+                                                }
+                                            }).flatMap(new Function<Mono<ResponseEntity<HttpApiResponse>>, Mono<? extends ResponseEntity<HttpApiResponse>>>() {
+                                                @Override
+                                                public Mono<? extends ResponseEntity<HttpApiResponse>> apply(Mono<ResponseEntity<HttpApiResponse>> n) {
+                                                    return n;
+                                                }
+                                            });
+                                } else {
+                                    return iprovider.processOutBoundMessageF(xmsg)
+                                            .doOnError(new Consumer<Throwable>() {
+                                                @Override
+                                                public void accept(Throwable e) {
+                                                    log.error("Exception in processOutBoundMessageF:" + e.getMessage());
+                                                    response.setStatus(HttpStatus.INTERNAL_SERVER_ERROR.value());
+                                                    response.setError(HttpStatus.INTERNAL_SERVER_ERROR.getReasonPhrase());
+                                                    response.setMessage("Exception while sending message: " + e.getMessage());
+                                                }
+                                            }).map(new Function<XMessage, Mono<ResponseEntity<HttpApiResponse>>>() {
+                                                @Override
+                                                public Mono<ResponseEntity<HttpApiResponse>> apply(XMessage xMessage) {
+                                                    XMessageDAO dao = XMessageDAOUtils.convertXMessageToDAO(xMessage);
+
+                                                    return xMessageRepo
+                                                            .insert(dao)
+                                                            .doOnError(new Consumer<Throwable>() {
+                                                                @Override
+                                                                public void accept(Throwable e) {
+                                                                    log.error("Exception in xMsg Dao Save:" + e.getMessage());
+                                                                    response.setStatus(HttpStatus.INTERNAL_SERVER_ERROR.value());
+                                                                    response.setError(HttpStatus.INTERNAL_SERVER_ERROR.getReasonPhrase());
+                                                                    response.setMessage("Exception in saving xMessage: " + e.getMessage());
+                                                                }
+                                                            })
+                                                            .map(new Function<XMessageDAO, ResponseEntity<HttpApiResponse>>() {
+                                                                @Override
+                                                                public ResponseEntity<HttpApiResponse> apply(XMessageDAO xMessageDAO) {
+                                                                    log.info("XMessage Object saved is with sent user ID >> " + xMessageDAO.getUserId());
+                                                                    response.setMessage("Message sent.");
+                                                                    Map<String, String> resultNode = new HashMap<>();
+                                                                    resultNode.put("messageId", xMessageDAO.getMessageId());
+                                                                    response.setResult(resultNode);
+                                                                    return ResponseEntity.ok(response);
+                                                                }
+                                                            });
+                                                }
+                                            }).flatMap(new Function<Mono<ResponseEntity<HttpApiResponse>>, Mono<? extends ResponseEntity<HttpApiResponse>>>() {
+                                                @Override
+                                                public Mono<? extends ResponseEntity<HttpApiResponse>> apply(Mono<ResponseEntity<HttpApiResponse>> n) {
+                                                    return n;
+                                                }
+                                            });
+                                }
                             } catch (Exception e) {
-                                log.error("Exception while sending outbound message: "+e.getMessage());
+                                log.error("Exception while sending outbound message: " + e.getMessage());
                                 response.setStatus(HttpStatus.INTERNAL_SERVER_ERROR.value());
                                 response.setError(HttpStatus.INTERNAL_SERVER_ERROR.getReasonPhrase());
-                                response.setMessage("Exception while sending message: "+e.getMessage());
+                                response.setMessage("Exception while sending message: " + e.getMessage());
                             }
 
                             return Mono.just(ResponseEntity.internalServerError().body(response));
