@@ -148,7 +148,7 @@ public class NotificationConsumerReactive {
                                  * Setting xmessage in cache
                                  * for Delivery Report Uses
                                  */
-                                setDaoInRedisForNlDeliveryReport(xMessageDAO);
+                                setDaoInRedisForDeliveryReport(xMessageDAO);
 
                                 String channel = xMessage.getChannelURI();
                                 String provider = xMessage.getProviderURI();
@@ -205,7 +205,7 @@ public class NotificationConsumerReactive {
         emailService.sendMailWithAttachment(emailDetails);
     }
 
-    private void setDaoInRedisForNlDeliveryReport(XMessageDAO xMessageDAO) {
+    private void setDaoInRedisForDeliveryReport(XMessageDAO xMessageDAO) {
         if (xMessageDAO != null && xMessageDAO.getMessageId() != null && !xMessageDAO.getMessageId().isEmpty() &&
                 xMessageDAO.getUserId() != null && !xMessageDAO.getUserId().isEmpty()) {
             redisCacheService.setCache(xMessageDAO.getMessageId() + "_" + xMessageDAO.getUserId(), xMessageDAO);
