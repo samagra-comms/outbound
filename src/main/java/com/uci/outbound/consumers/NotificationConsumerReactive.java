@@ -143,7 +143,12 @@ public class NotificationConsumerReactive {
                         .subscribe(new Consumer<XMessageDAO>() {
                             @Override
                             public void accept(XMessageDAO xMessageDAO) {
-                                log.info("NotificationConsumerReactive: XMessage Object saved is with sent user ID >> " + xMessageDAO.getUserId());
+                                log.info("NotificationConsumerReactive: XMessage Object saved is with sent user ID >> " + xMessageDAO.getUserId() + " : cass id : " + xMessageDAO.getId());
+                                /**
+                                 * Setting xmessage in cache
+                                 * for Delivery Report Uses
+                                 */
+                                setDaoInRedisForDeliveryReport(xMessageDAO);
 
                                 String channel = xMessage.getChannelURI();
                                 String provider = xMessage.getProviderURI();
@@ -198,5 +203,15 @@ public class NotificationConsumerReactive {
                 .attachments(attachments)
                 .build();
         emailService.sendMailWithAttachment(emailDetails);
+    }
+
+    private void setDaoInRedisForDeliveryReport(XMessageDAO xMessageDAO) {
+        if (xMessageDAO != null && xMessageDAO.getMessageId() != null && !xMessageDAO.getMessageId().isEmpty() &&
+                xMessageDAO.getUserId() != null && !xMessageDAO.getUserId().isEmpty()) {
+            redisCacheService.setCache(xMessageDAO.getMessageId() + "_" + xMessageDAO.getUserId(), xMessageDAO);
+        } else {
+            log.error("NotificationConsumerReactive:saveXMessage:: MessageId or UserId not found..." + xMessageDAO);
+        }
+
     }
 }
