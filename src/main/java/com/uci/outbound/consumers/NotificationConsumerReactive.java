@@ -149,7 +149,7 @@ public class NotificationConsumerReactive {
                             @Override
                             public void accept(XMessageDAO xMessageDAO) {
                                 log.info("NotificationConsumerReactive: XMessage Object saved is with sent user ID >> " + xMessageDAO.getUserId() + " : cass id : " + xMessageDAO.getId());
-
+                              
                                 String channel = xMessage.getChannelURI();
                                 String provider = xMessage.getProviderURI();
 
