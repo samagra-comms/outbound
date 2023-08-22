@@ -131,6 +131,11 @@ public class NotificationConsumerReactive {
                 XMessageDAO dao = null;
                 dao = XMessageDAOUtils.convertXMessageToDAO(xMessage);
                 redisCacheService.setXMessageDaoCache(xMessage.getTo().getUserID(), dao);
+                /**
+                 * Setting xmessage in cache
+                 * for Delivery Report Uses
+                 */
+                setDaoInRedisForDeliveryReport(dao);
                 xMessageRepo
                         .insert(dao)
                         .doOnError(new Consumer<Throwable>() {
@@ -144,12 +149,7 @@ public class NotificationConsumerReactive {
                             @Override
                             public void accept(XMessageDAO xMessageDAO) {
                                 log.info("NotificationConsumerReactive: XMessage Object saved is with sent user ID >> " + xMessageDAO.getUserId() + " : cass id : " + xMessageDAO.getId());
-                                /**
-                                 * Setting xmessage in cache
-                                 * for Delivery Report Uses
-                                 */
-                                setDaoInRedisForDeliveryReport(xMessageDAO);
-
+                              
                                 String channel = xMessage.getChannelURI();
                                 String provider = xMessage.getProviderURI();
 
