@@ -17,9 +17,9 @@
 
 	<properties>
 		<java.version>11</java.version>
-		<utils.version>2.4.1</utils.version>
-		<dao.version>2.4.1</dao.version>
-		<adapter.version>2.4.1</adapter.version>
+		<utils.version>2.4.2</utils.version>
+		<dao.version>2.4.2</dao.version>
+		<adapter.version>2.4.2</adapter.version>
 	</properties>
 
 	<!-- For Downloading repositories from github packages -->
